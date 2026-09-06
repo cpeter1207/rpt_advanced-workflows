@@ -1,0 +1,57 @@
+name: Required quality
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  independent:
+    name: Platform-independent checks
+    runs-on: ubuntu-24.04
+    container: ghcr.io/cpeter1207/usbradioplus-quality-debian13:latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check formatting, analysis, and documentation concurrently
+        run: make -j3 quality
+      - uses: actions/upload-artifact@v7
+        with:
+          name: doxygen-html
+          path: build/docs/html
+          if-no-files-found: error
+  platforms:
+    needs: independent
+    strategy:
+      fail-fast: false
+      matrix:
+        debian: ['12', '13']
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    container: ghcr.io/cpeter1207/usbradioplus-quality-debian${{ matrix.debian }}:latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify target architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: test "$(dpkg --print-architecture)" = "$EXPECTED_ARCH"
+      - run: make platform-verify
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-debian${{ matrix.debian }}-${{ matrix.arch }}
+          path: build/coverage
+          if-no-files-found: error
+  required:
+    name: Required quality gate
+    if: always()
+    needs: [independent, platforms]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require all checks
+        env:
+          INDEPENDENT: ${{ needs.independent.result }}
+          PLATFORMS: ${{ needs.platforms.result }}
+        run: test "$INDEPENDENT" = success && test "$PLATFORMS" = success
