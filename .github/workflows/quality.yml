@@ -55,3 +55,28 @@ jobs:
           INDEPENDENT: ${{ needs.independent.result }}
           PLATFORMS: ${{ needs.platforms.result }}
         run: test "$INDEPENDENT" = success && test "$PLATFORMS" = success
+  documentation:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: required
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: doxygen-html
+          path: public
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: public
+      - uses: actions/deploy-pages@v5
+        id: publish
