@@ -30,6 +30,14 @@ Each Debian version gets `rpt-advanced-asl3-debianN` and
 The workflow also supports `workflow_call` with `code_ref` so release automation
 can reuse it for the exact release revision. No workflow-only push starts it.
 
+The reusable **Verified source release** workflow accepts version-tag callers.
+It runs the image publication workflow, including the same production quality
+gate and all four native installed-image checks, before publishing a source
+tarball and SHA-256 checksum. Both images and archive use the caller's exact
+commit. Tags with a suffix are GitHub prereleases. Creating or editing workflow
+code does not create a release; the production repository must push a version
+tag through its thin caller.
+
 Branch protection requires pull requests, linear history, and resolved review
 conversations, and prohibits force pushes and branch deletion. No nonexistent
 status checks are required; the existing `validate` check is required. Workflow validation remains independent of

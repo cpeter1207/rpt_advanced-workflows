@@ -1,0 +1,52 @@
+name: Verified source release
+on:
+  workflow_call:
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  id-token: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require a version tag
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          test "$REF_TYPE" = tag
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]
+  verified-images:
+    needs: validate
+    uses: ./.github/workflows/test-images.yml
+    with:
+      code_ref: ${{ github.sha }}
+  publish:
+    needs: verified-images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rpt_advanced
+          ref: ${{ github.sha }}
+      - name: Package the verified revision
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          make dist VERSION="${TAG#v}"
+          cd build
+          sha256sum ./*.tar.gz > SHA256SUMS
+      - name: Publish after every quality and image check succeeds
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: cpeter1207/rpt_advanced
+          TAG: ${{ github.ref_name }}
+        run: |
+          options=()
+          if [[ "$TAG" == *-* ]]; then options+=(--prerelease); fi
+          gh release create "$TAG" --verify-tag --generate-notes \
+            "${options[@]}" build/*.tar.gz build/SHA256SUMS
