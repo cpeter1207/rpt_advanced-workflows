@@ -7,7 +7,7 @@ jobs:
   independent:
     name: Platform-independent checks
     runs-on: ubuntu-24.04
-    container: ghcr.io/cpeter1207/usbradioplus-quality-debian13:latest
+    container: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest
     steps:
       - uses: actions/checkout@v7
       - name: Check formatting, analysis, and documentation concurrently
@@ -30,7 +30,7 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    container: ghcr.io/cpeter1207/usbradioplus-quality-debian${{ matrix.debian }}:latest
+    container: ghcr.io/cpeter1207/rpt-advanced-quality-debian${{ matrix.debian }}:latest
     steps:
       - uses: actions/checkout@v7
       - name: Verify target architecture
