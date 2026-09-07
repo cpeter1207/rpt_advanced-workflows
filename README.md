@@ -20,6 +20,16 @@ workflow consumes `ghcr.io/cpeter1207/rpt-advanced-quality-debian12:latest` and
 `ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest`; both manifests have
 verified public amd64 and arm64 images.
 
+**Publish verified ASL3 test images** resolves a production ref to one commit,
+runs the same required quality gate, and builds clean ASL3 and installed-module
+images. The installed image runs the production repository's isolated Asterisk
+audio tests; the test driver is never part of the module's installation files.
+Each Debian version gets `rpt-advanced-asl3-debianN` and
+`rpt-advanced-installed-debianN` manifests tagged with the tested commit and
+`latest`. Publication waits for every native-platform build and smoke test.
+The workflow also supports `workflow_call` with `code_ref` so release automation
+can reuse it for the exact release revision. No workflow-only push starts it.
+
 Branch protection requires pull requests, linear history, and resolved review
 conversations, and prohibits force pushes and branch deletion. No nonexistent
 status checks are required; the existing `validate` check is required. Workflow validation remains independent of

@@ -1,6 +1,12 @@
 name: Required quality
 on:
   workflow_call:
+    inputs:
+      code_ref:
+        description: Exact production revision to validate; empty uses the caller revision.
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -10,6 +16,9 @@ jobs:
     container: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rpt_advanced
+          ref: ${{ inputs.code_ref || github.sha }}
       - name: Check formatting, analysis, and documentation concurrently
         run: make -j3 quality
       - uses: actions/upload-artifact@v7
@@ -33,6 +42,9 @@ jobs:
     container: ghcr.io/cpeter1207/rpt-advanced-quality-debian${{ matrix.debian }}:latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rpt_advanced
+          ref: ${{ inputs.code_ref || github.sha }}
       - name: Verify target architecture
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}

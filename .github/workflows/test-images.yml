@@ -1,0 +1,126 @@
+name: Publish verified ASL3 test images
+on:
+  workflow_dispatch:
+    inputs:
+      code_ref:
+        description: Production branch, tag, or commit
+        type: string
+        default: main
+        required: true
+  workflow_call:
+    inputs:
+      code_ref:
+        description: Production release tag or commit
+        type: string
+        required: true
+permissions:
+  contents: read
+  packages: write
+  pages: write
+  id-token: write
+concurrency:
+  group: test-image-publication
+  cancel-in-progress: false
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    outputs:
+      revision: ${{ steps.revision.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rpt_advanced
+          ref: ${{ inputs.code_ref }}
+      - id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  quality:
+    needs: resolve
+    uses: ./.github/workflows/quality.yml
+    with:
+      code_ref: ${{ needs.resolve.outputs.revision }}
+  build:
+    needs: [resolve, quality]
+    strategy:
+      fail-fast: false
+      matrix:
+        debian: ['12', '13']
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Remove stale project test containers
+        run: docker ps -aq --filter label=rpt_advanced.test=true | xargs -r docker rm -f
+      - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rpt_advanced-workflows
+          ref: main
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: containers/test.Dockerfile
+          target: clean
+          platforms: linux/${{ matrix.arch }}
+          build-args: DEBIAN_VERSION=${{ matrix.debian }}
+          load: true
+          tags: ghcr.io/cpeter1207/rpt-advanced-asl3-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=test-${{ matrix.debian }}-${{ matrix.arch }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: containers/test.Dockerfile
+          target: installed
+          platforms: linux/${{ matrix.arch }}
+          build-args: DEBIAN_VERSION=${{ matrix.debian }}
+          build-contexts: production=https://github.com/cpeter1207/rpt_advanced.git#${{ needs.resolve.outputs.revision }}
+          load: true
+          tags: ghcr.io/cpeter1207/rpt-advanced-installed-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=test-${{ matrix.debian }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=test-${{ matrix.debian }}-${{ matrix.arch }}
+      - name: Verify clean installation and installed audio behavior
+        env:
+          CLEAN: ghcr.io/cpeter1207/rpt-advanced-asl3-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          INSTALLED: ghcr.io/cpeter1207/rpt-advanced-installed-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          docker run --rm --label rpt_advanced.test=true -e EXPECTED_ARCH "$CLEAN" sh -c '
+            test "$(dpkg --print-architecture)" = "$EXPECTED_ARCH" &&
+            asterisk -V && test -z "$(find /usr/lib -name app_rpt_advanced.so -print -quit)"
+          '
+          docker run --rm --label rpt_advanced.test=true "$INSTALLED"
+          docker push "$CLEAN"
+          docker push "$INSTALLED"
+      - name: Remove test containers left by interruption
+        if: always()
+        run: docker ps -aq --filter label=rpt_advanced.test=true | xargs -r docker rm -f
+  publish:
+    needs: [resolve, build]
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        debian: ['12', '13']
+        kind: [asl3, installed]
+    steps:
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish verified multiarch images
+        env:
+          IMAGE: ghcr.io/cpeter1207/rpt-advanced-${{ matrix.kind }}-debian${{ matrix.debian }}
+          REVISION: ${{ needs.resolve.outputs.revision }}
+        run: |
+          docker buildx imagetools create -t "$IMAGE:$REVISION" -t "$IMAGE:latest" \
+            "$IMAGE:$REVISION-amd64" "$IMAGE:$REVISION-arm64"
+          docker buildx imagetools inspect "$IMAGE:$REVISION"
