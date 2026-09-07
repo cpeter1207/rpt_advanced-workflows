@@ -50,6 +50,16 @@ jobs:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: test "$(dpkg --print-architecture)" = "$EXPECTED_ARCH"
       - run: make platform-verify
+      - name: Check out the tested USBRadioPlus adapter
+        uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/USBRadioPlus
+          ref: 88f347280f3cf2df02171e761a00e5988e82d9c3
+          path: build/adapter-source
+      - name: Verify the real adapter through Asterisk
+        run: |
+          make -W tests/radio_fixture.c integration \
+            USBRADIOPLUS_SOURCE="$PWD/build/adapter-source"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
