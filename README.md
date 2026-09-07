@@ -15,9 +15,10 @@ The manually dispatched **Publish quality images** workflow builds Debian 12/13
 images on native amd64/arm64 runners. It adds the FFmpeg executable to the existing
 ASL3 quality environment and verifies tools before publishing architecture tags.
 The `latest` manifests are updated only after all four builds pass. These are
-quality images, not clean-install or installed-release images. The production
-workflow must switch to their names only after publication and pull access have
-been verified.
+quality images, not clean-install or installed-release images. The quality
+workflow consumes `ghcr.io/cpeter1207/rpt-advanced-quality-debian12:latest` and
+`ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest`; both manifests have
+verified public amd64 and arm64 images.
 
 Branch protection requires pull requests, linear history, and resolved review
 conversations, and prohibits force pushes and branch deletion. No nonexistent
