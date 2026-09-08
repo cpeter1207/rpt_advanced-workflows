@@ -71,7 +71,8 @@ jobs:
       - name: Verify the real adapter through Asterisk
         run: |
           make -W tests/radio_fixture.c integration \
-            USBRADIOPLUS_SOURCE="$PWD/build/adapter-source"
+            USBRADIOPLUS_SOURCE="$PWD/build/adapter-source" \
+            RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
