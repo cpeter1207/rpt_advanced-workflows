@@ -19,8 +19,14 @@ jobs:
         with:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref || github.sha }}
+      - name: Check out the shared playout ring
+        uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rate_adjusting_pcm_ring
+          ref: main
+          path: build/rate_adjusting_pcm_ring
       - name: Check formatting, analysis, and documentation concurrently
-        run: make -j3 quality
+        run: make -j3 quality RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
       - uses: actions/upload-artifact@v7
         with:
           name: doxygen-html
@@ -45,11 +51,17 @@ jobs:
         with:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref || github.sha }}
+      - name: Check out the shared playout ring
+        uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rate_adjusting_pcm_ring
+          ref: main
+          path: build/rate_adjusting_pcm_ring
       - name: Verify target architecture
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: test "$(dpkg --print-architecture)" = "$EXPECTED_ARCH"
-      - run: make platform-verify
+      - run: make platform-verify RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
       - name: Check out the tested USBRadioPlus adapter
         uses: actions/checkout@v7
         with:
