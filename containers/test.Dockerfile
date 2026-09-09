@@ -2,7 +2,9 @@
 ARG DEBIAN_VERSION=13
 FROM debian:${DEBIAN_VERSION} AS clean
 ARG DEBIAN_VERSION
-LABEL org.opencontainers.image.source="https://github.com/cpeter1207/rpt_advanced-workflows"
+# Associate published images with the production repository so its workflow
+# token owns the corresponding GHCR packages.
+LABEL org.opencontainers.image.source="https://github.com/cpeter1207/rpt_advanced"
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates wget && \
     wget -qO /tmp/asl-repo.deb \
