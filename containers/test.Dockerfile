@@ -29,6 +29,7 @@ FROM clean AS installed
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ffmpeg python3 && rm -rf /var/lib/apt/lists/*
 COPY --from=build /stage/ /
+RUN ldconfig
 WORKDIR /opt/rpt-testing
 # Test fixtures remain separate from the installed module and its configuration.
 COPY --from=build /source/build/chan_rpt_fixture.so ./build/
