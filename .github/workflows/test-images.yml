@@ -72,7 +72,7 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           build-args: DEBIAN_VERSION=${{ matrix.debian }}
           load: true
-          tags: ghcr.io/cpeter1207/rpt-advanced-asl3-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          tags: ghcr.io/cpeter1207/rpt-advanced-test-asl3-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
           cache-from: type=gha,scope=test-${{ matrix.debian }}-${{ matrix.arch }}
       - uses: docker/build-push-action@v7
         with:
@@ -85,13 +85,13 @@ jobs:
             production=https://github.com/cpeter1207/rpt_advanced.git#${{ needs.resolve.outputs.revision }}
             rpcr=https://github.com/cpeter1207/rate_adjusting_pcm_ring.git#v0.1.5
           load: true
-          tags: ghcr.io/cpeter1207/rpt-advanced-installed-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          tags: ghcr.io/cpeter1207/rpt-advanced-test-installed-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
           cache-from: type=gha,scope=test-${{ matrix.debian }}-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=test-${{ matrix.debian }}-${{ matrix.arch }}
       - name: Verify clean installation and installed audio behavior
         env:
-          CLEAN: ghcr.io/cpeter1207/rpt-advanced-asl3-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
-          INSTALLED: ghcr.io/cpeter1207/rpt-advanced-installed-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          CLEAN: ghcr.io/cpeter1207/rpt-advanced-test-asl3-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          INSTALLED: ghcr.io/cpeter1207/rpt-advanced-test-installed-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
           docker run --rm --label rpt_advanced.test=true -e EXPECTED_ARCH "$CLEAN" sh -c '
@@ -120,7 +120,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish verified multiarch images
         env:
-          IMAGE: ghcr.io/cpeter1207/rpt-advanced-${{ matrix.kind }}-debian${{ matrix.debian }}
+          IMAGE: ghcr.io/cpeter1207/rpt-advanced-test-${{ matrix.kind }}-debian${{ matrix.debian }}
           REVISION: ${{ needs.resolve.outputs.revision }}
         run: |
           docker buildx imagetools create -t "$IMAGE:$REVISION" -t "$IMAGE:latest" \
