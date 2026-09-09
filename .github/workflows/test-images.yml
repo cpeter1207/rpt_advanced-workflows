@@ -81,7 +81,9 @@ jobs:
           target: installed
           platforms: linux/${{ matrix.arch }}
           build-args: DEBIAN_VERSION=${{ matrix.debian }}
-          build-contexts: production=https://github.com/cpeter1207/rpt_advanced.git#${{ needs.resolve.outputs.revision }}
+          build-contexts: |
+            production=https://github.com/cpeter1207/rpt_advanced.git#${{ needs.resolve.outputs.revision }}
+            rpcr=https://github.com/cpeter1207/rate_adjusting_pcm_ring.git#v0.1.5
           load: true
           tags: ghcr.io/cpeter1207/rpt-advanced-installed-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
           cache-from: type=gha,scope=test-${{ matrix.debian }}-${{ matrix.arch }}

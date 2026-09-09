@@ -19,7 +19,11 @@ COPY --from=production src ./src
 COPY --from=production module ./module
 COPY --from=production tests ./tests
 COPY --from=production examples ./examples
-RUN make -j4 all build/chan_rpt_fixture.so && make DESTDIR=/stage prefix=/usr install
+# Build the released shared playout-ring implementation in the same image as
+# the module so the installed test artifact has its required runtime library.
+COPY --from=rpcr . /rpcr
+RUN make -j4 RPCR_SOURCE=/rpcr all build/chan_rpt_fixture.so && \
+    make RPCR_SOURCE=/rpcr DESTDIR=/stage prefix=/usr install
 
 FROM clean AS installed
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
