@@ -29,6 +29,9 @@ FROM clean AS installed
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ffmpeg python3 && rm -rf /var/lib/apt/lists/*
 COPY --from=build /stage/ /
+# Install the shared ring as the module's separately packaged runtime
+# dependency.  The module's RUNPATH resolves this non-multiarch location.
+COPY --from=build /source/build/rpcr-stage/ /
 RUN ldconfig
 WORKDIR /opt/rpt-testing
 # Test fixtures remain separate from the installed module and its configuration.
