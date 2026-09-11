@@ -37,7 +37,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        debian: ['12', '13']
         arch: [amd64, arm64]
         include:
           - arch: amd64
@@ -45,7 +44,7 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    container: ghcr.io/cpeter1207/rpt-advanced-quality-debian${{ matrix.debian }}:latest
+    container: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest
     steps:
       - uses: actions/checkout@v7
         with:
@@ -61,7 +60,13 @@ jobs:
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: test "$(dpkg --print-architecture)" = "$EXPECTED_ARCH"
-      - run: make platform-verify RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
+      - name: Build, test, package, and stage installation
+        run: |
+          if [ "${{ matrix.arch }}" = amd64 ]; then
+            make platform-verify RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
+          else
+            make all check install-check distcheck RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
+          fi
       - name: Check out the tested USBRadioPlus adapter
         uses: actions/checkout@v7
         with:
@@ -74,9 +79,9 @@ jobs:
             USBRADIOPLUS_SOURCE="$PWD/build/adapter-source" \
             RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: always() && matrix.arch == 'amd64'
         with:
-          name: coverage-debian${{ matrix.debian }}-${{ matrix.arch }}
+          name: coverage-debian13-amd64
           path: build/coverage
           if-no-files-found: error
   required:
