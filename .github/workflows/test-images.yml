@@ -7,12 +7,33 @@ on:
         type: string
         default: main
         required: true
+      target_debian:
+        description: Debian release for this explicit manual image build.
+        type: choice
+        required: true
+        default: '13'
+        options: ['13', '12']
+      manual_debian12:
+        description: Explicitly acknowledge a manually requested Debian 12 build.
+        type: boolean
+        required: true
+        default: false
   workflow_call:
     inputs:
       code_ref:
         description: Production release tag or commit
         type: string
         required: true
+      target_debian:
+        description: Target Debian release; Debian 12 requires explicit acknowledgement.
+        type: string
+        required: false
+        default: '13'
+      manual_debian12:
+        description: Explicitly acknowledge a manually requested Debian 12 build.
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: read
   packages: write
@@ -26,6 +47,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       revision: ${{ steps.revision.outputs.sha }}
+      debian: ${{ steps.target.outputs.debian }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,6 +55,17 @@ jobs:
           ref: ${{ inputs.code_ref }}
       - id: revision
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: target
+        env:
+          TARGET_DEBIAN: ${{ inputs.target_debian }}
+          MANUAL_DEBIAN12: ${{ inputs.manual_debian12 }}
+        run: |
+          case "$TARGET_DEBIAN" in
+            13) ;;
+            12) test "$MANUAL_DEBIAN12" = true ;;
+            *) echo "Unsupported Debian target: $TARGET_DEBIAN" >&2; exit 1 ;;
+          esac
+          echo "debian=$TARGET_DEBIAN" >> "$GITHUB_OUTPUT"
   quality:
     needs: resolve
     uses: ./.github/workflows/quality.yml
@@ -43,7 +76,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        debian: ['12', '13']
         arch: [amd64, arm64]
         include:
           - arch: amd64
@@ -70,28 +102,28 @@ jobs:
           file: containers/test.Dockerfile
           target: clean
           platforms: linux/${{ matrix.arch }}
-          build-args: DEBIAN_VERSION=${{ matrix.debian }}
+          build-args: DEBIAN_VERSION=${{ needs.resolve.outputs.debian }}
           load: true
-          tags: ghcr.io/cpeter1207/rpt-advanced-test-asl3-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
-          cache-from: type=gha,scope=test-${{ matrix.debian }}-${{ matrix.arch }}
+          tags: ghcr.io/cpeter1207/rpt-advanced-test-asl3-debian${{ needs.resolve.outputs.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=test-${{ needs.resolve.outputs.debian }}-${{ matrix.arch }}
       - uses: docker/build-push-action@v7
         with:
           context: .
           file: containers/test.Dockerfile
           target: installed
           platforms: linux/${{ matrix.arch }}
-          build-args: DEBIAN_VERSION=${{ matrix.debian }}
+          build-args: DEBIAN_VERSION=${{ needs.resolve.outputs.debian }}
           build-contexts: |
             production=https://github.com/cpeter1207/rpt_advanced.git#${{ needs.resolve.outputs.revision }}
             rpcr=https://github.com/cpeter1207/rate_adjusting_pcm_ring.git#v0.1.5
           load: true
-          tags: ghcr.io/cpeter1207/rpt-advanced-test-installed-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
-          cache-from: type=gha,scope=test-${{ matrix.debian }}-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=test-${{ matrix.debian }}-${{ matrix.arch }}
+          tags: ghcr.io/cpeter1207/rpt-advanced-test-installed-debian${{ needs.resolve.outputs.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=test-${{ needs.resolve.outputs.debian }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=test-${{ needs.resolve.outputs.debian }}-${{ matrix.arch }}
       - name: Verify clean installation and installed audio behavior
         env:
-          CLEAN: ghcr.io/cpeter1207/rpt-advanced-test-asl3-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
-          INSTALLED: ghcr.io/cpeter1207/rpt-advanced-test-installed-debian${{ matrix.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          CLEAN: ghcr.io/cpeter1207/rpt-advanced-test-asl3-debian${{ needs.resolve.outputs.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
+          INSTALLED: ghcr.io/cpeter1207/rpt-advanced-test-installed-debian${{ needs.resolve.outputs.debian }}:${{ needs.resolve.outputs.revision }}-${{ matrix.arch }}
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
           docker run --rm --label rpt_advanced.test=true -e EXPECTED_ARCH "$CLEAN" sh -c '
@@ -109,7 +141,6 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        debian: ['12', '13']
         kind: [asl3, installed]
     steps:
       - uses: docker/setup-buildx-action@v4
@@ -120,7 +151,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish verified multiarch images
         env:
-          IMAGE: ghcr.io/cpeter1207/rpt-advanced-test-${{ matrix.kind }}-debian${{ matrix.debian }}
+          IMAGE: ghcr.io/cpeter1207/rpt-advanced-test-${{ matrix.kind }}-debian${{ needs.resolve.outputs.debian }}
           REVISION: ${{ needs.resolve.outputs.revision }}
         run: |
           docker buildx imagetools create -t "$IMAGE:$REVISION" -t "$IMAGE:latest" \
