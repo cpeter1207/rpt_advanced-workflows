@@ -57,7 +57,8 @@ jobs:
             test -f /usr/include/asterisk.h &&
             asterisk -V && ffmpeg -version &&
             cc --version && clang-format --version && clang-tidy --version &&
-            cppcheck --version && doxygen --version && ruff --version && gcovr --version
+            cppcheck --version && doxygen --version && ruff --version && gcovr --version &&
+            cargo llvm-cov --version
           '
           docker push "$IMAGE"
       - name: Remove test containers left by interruption
