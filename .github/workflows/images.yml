@@ -49,7 +49,7 @@ jobs:
         run: |
           docker run --rm --label rpt_advanced.test=true -e ARCH "$IMAGE" sh -c '
             test "$(dpkg --print-architecture)" = "$ARCH" &&
-            test -f /usr/include/asterisk.h && ldconfig -p | grep -q 'libclang.so' &&
+            test -f /usr/include/asterisk.h && test -f /usr/lib/llvm-*/lib/libclang.so &&
             asterisk -V && ffmpeg -version && cargo --version && rustc --version &&
             rustfmt --version && cargo clippy --version && rustdoc --version &&
             dpkg-query -W librate-adjusting-pcm-ring2-dev librptadv-samplerate-adapter-dev &&
