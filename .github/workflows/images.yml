@@ -1,13 +1,6 @@
 name: Publish quality images
 on:
-  workflow_dispatch:
-    inputs:
-      target_debian:
-        description: Debian release for this explicit manual image build.
-        type: choice
-        required: true
-        default: '13'
-        options: ['13', '12']
+  workflow_dispatch: {}
 permissions:
   contents: read
   packages: write
@@ -31,6 +24,7 @@ jobs:
         run: |
           docker ps -aq --filter label=rpt_advanced.test=true | xargs -r docker rm -f
       - uses: actions/checkout@v7
+      - uses: ./.github/actions/install-shared-dependencies
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -42,22 +36,26 @@ jobs:
           context: .
           file: containers/quality.Dockerfile
           platforms: linux/${{ matrix.arch }}
-          build-args: DEBIAN_VERSION=${{ inputs.target_debian }}
+          build-args: DEBIAN_VERSION=13
+          build-contexts: dependencies=dependencies/packages
           load: true
-          tags: ghcr.io/cpeter1207/rpt-advanced-quality-debian${{ inputs.target_debian }}:${{ github.sha }}-${{ matrix.arch }}
-          cache-from: type=gha,scope=quality-${{ inputs.target_debian }}-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=quality-${{ inputs.target_debian }}-${{ matrix.arch }}
+          tags: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:${{ github.sha }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=quality-debian13-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=quality-debian13-${{ matrix.arch }}
       - name: Verify prepared environment and publish architecture image
         env:
-          IMAGE: ghcr.io/cpeter1207/rpt-advanced-quality-debian${{ inputs.target_debian }}:${{ github.sha }}-${{ matrix.arch }}
+          IMAGE: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:${{ github.sha }}-${{ matrix.arch }}
           ARCH: ${{ matrix.arch }}
         run: |
           docker run --rm --label rpt_advanced.test=true -e ARCH "$IMAGE" sh -c '
             test "$(dpkg --print-architecture)" = "$ARCH" &&
-            test -f /usr/include/asterisk.h &&
-            asterisk -V && ffmpeg -version &&
+            test -f /usr/include/asterisk.h && ldconfig -p | grep -q 'libclang.so' &&
+            asterisk -V && ffmpeg -version && cargo --version && rustc --version &&
+            rustfmt --version && cargo clippy --version && rustdoc --version &&
+            dpkg-query -W librate-adjusting-pcm-ring2-dev librptadv-samplerate-adapter-dev &&
             cc --version && clang-format --version && clang-tidy --version &&
-            cppcheck --version && doxygen --version && ruff --version && gcovr --version
+            cppcheck --version && doxygen --version && ruff --version && gcovr --version &&
+            cargo llvm-cov --version
           '
           docker push "$IMAGE"
       - name: Remove test containers left by interruption
@@ -76,7 +74,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish verified native-platform manifest
         env:
-          IMAGE: ghcr.io/cpeter1207/rpt-advanced-quality-debian${{ inputs.target_debian }}
+          IMAGE: ghcr.io/cpeter1207/rpt-advanced-quality-debian13
           REVISION: ${{ github.sha }}
         run: |
           docker buildx imagetools create -t "$IMAGE:latest" \
