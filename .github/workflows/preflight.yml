@@ -1,0 +1,23 @@
+name: Fast quality
+on:
+  workflow_call:
+    inputs:
+      code_ref:
+        description: Exact production revision to check; empty uses the caller revision.
+        type: string
+        required: false
+        default: ''
+permissions:
+  contents: read
+jobs:
+  preflight:
+    name: Fast quality
+    runs-on: ubuntu-24.04
+    container: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rpt_advanced
+          ref: ${{ inputs.code_ref || github.sha }}
+      - name: Check formatting, lint, and static analysis
+        run: make -j2 lint static-analysis

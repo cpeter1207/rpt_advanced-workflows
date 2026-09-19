@@ -1,0 +1,40 @@
+name: Publish documentation
+on:
+  workflow_call:
+    inputs:
+      code_ref:
+        description: Exact production main revision whose documentation is published.
+        type: string
+        required: true
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    container: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rpt_advanced
+          ref: ${{ inputs.code_ref }}
+      - name: Generate documentation for the main revision
+        run: |
+          make docs
+          mkdir -p build/docs/html/rust
+          cp -a target/doc/. build/docs/html/rust/
+      - uses: actions/configure-pages@v6
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/docs/html
+      - uses: actions/deploy-pages@v5
+        id: publish
