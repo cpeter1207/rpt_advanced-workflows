@@ -31,8 +31,8 @@ runs:
             "$(jq -r .browser_download_url <<< "$asset")" --output "$file"
           printf '%s  %s\n' "$(jq -er '.digest | ltrimstr("sha256:")' <<< "$asset")" "$file" | sha256sum -c -
         }
-        download rate_adjusting_pcm_ring v2.0.0-alpha.1 librate-adjusting-pcm-ring2
-        download rate_adjusting_pcm_ring v2.0.0-alpha.1 librate-adjusting-pcm-ring2-dev
-        download rptadv-samplerate-adapter v0.1.0-alpha.1 librptadv-samplerate-adapter1
-        download rptadv-samplerate-adapter v0.1.0-alpha.1 librptadv-samplerate-adapter-dev
+        download rate_adjusting_pcm_ring v2.0.0-alpha.3 librate-adjusting-pcm-ring2
+        download rate_adjusting_pcm_ring v2.0.0-alpha.3 librate-adjusting-pcm-ring2-dev
+        download rptadv-samplerate-adapter v0.1.0-alpha.2 librptadv-samplerate-adapter1
+        download rptadv-samplerate-adapter v0.1.0-alpha.2 librptadv-samplerate-adapter-dev
         printf 'package_directory=%s\n' "$directory" >> "$GITHUB_OUTPUT"
