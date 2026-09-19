@@ -103,6 +103,11 @@ jobs:
         run: |
           make dist VERSION="${TAG#v}"
           cd build
+          # GitHub normalizes tildes in asset names; checksum the final names.
+          for package in ./*.deb; do
+            normalized="${package//\~/.}"
+            if test "$package" != "$normalized"; then mv "$package" "$normalized"; fi
+          done
           sha256sum ./*.tar.gz ./*.deb > SHA256SUMS
       - name: Publish after artifact verification succeeds
         env:
