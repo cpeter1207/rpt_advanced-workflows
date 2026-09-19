@@ -78,11 +78,14 @@ jobs:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref }}
       - name: Build Debian packages
-        run: DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b
+        run: |
+          DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b
+          mkdir -p release-packages
+          cp ../*.deb release-packages/
       - uses: actions/upload-artifact@v7
         with:
           name: debian13-${{ matrix.arch }}
-          path: ../*.deb
+          path: release-packages/*.deb
           if-no-files-found: error
   publish:
     needs: [verified-images, packages]
