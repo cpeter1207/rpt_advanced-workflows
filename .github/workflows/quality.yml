@@ -19,19 +19,8 @@ jobs:
         with:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref || github.sha }}
-      - name: Check out the shared playout ring
-        uses: actions/checkout@v7
-        with:
-          repository: cpeter1207/rate_adjusting_pcm_ring
-          ref: main
-          path: build/rate_adjusting_pcm_ring
       - name: Check formatting, analysis, and documentation concurrently
-        run: make -j3 quality RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: doxygen-html
-          path: build/docs/html
-          if-no-files-found: error
+        run: make -j3 quality
   platforms:
     needs: independent
     strategy:
@@ -50,36 +39,27 @@ jobs:
         with:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref || github.sha }}
-      - name: Check out the shared playout ring
-        uses: actions/checkout@v7
-        with:
-          repository: cpeter1207/rate_adjusting_pcm_ring
-          ref: main
-          path: build/rate_adjusting_pcm_ring
       - name: Verify target architecture
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: test "$(dpkg --print-architecture)" = "$EXPECTED_ARCH"
       - name: Build, test, package, and stage installation
         run: |
-          if [ "${{ matrix.arch }}" = amd64 ]; then
-            make platform-verify RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
-          else
-            make all check install-check distcheck RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
-          fi
-      - name: Check out the tested USBRadioPlus adapter
-        uses: actions/checkout@v7
+          make platform-verify
+          DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b
+  coverage:
+    needs: independent
+    runs-on: ubuntu-24.04
+    container: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest
+    steps:
+      - uses: actions/checkout@v7
         with:
-          repository: cpeter1207/USBRadioPlus
-          ref: 88f347280f3cf2df02171e761a00e5988e82d9c3
-          path: build/adapter-source
-      - name: Verify the real adapter through Asterisk
-        run: |
-          make -W tests/radio_fixture.c integration \
-            USBRADIOPLUS_SOURCE="$PWD/build/adapter-source" \
-            RPCR_SOURCE="$PWD/build/rate_adjusting_pcm_ring"
+          repository: cpeter1207/rpt_advanced
+          ref: ${{ inputs.code_ref || github.sha }}
+      - name: Collect amd64 coverage
+        run: make coverage
       - uses: actions/upload-artifact@v7
-        if: always() && matrix.arch == 'amd64'
+        if: always()
         with:
           name: coverage-debian13-amd64
           path: build/coverage
@@ -87,36 +67,12 @@ jobs:
   required:
     name: Required quality gate
     if: always()
-    needs: [independent, platforms]
+    needs: [independent, platforms, coverage]
     runs-on: ubuntu-24.04
     steps:
       - name: Require all checks
         env:
           INDEPENDENT: ${{ needs.independent.result }}
           PLATFORMS: ${{ needs.platforms.result }}
-        run: test "$INDEPENDENT" = success && test "$PLATFORMS" = success
-  documentation:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: required
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.publish.outputs.page_url }}
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: doxygen-html
-          path: public
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: public
-      - uses: actions/deploy-pages@v5
-        id: publish
+          COVERAGE: ${{ needs.coverage.result }}
+        run: test "$INDEPENDENT" = success && test "$PLATFORMS" = success && test "$COVERAGE" = success

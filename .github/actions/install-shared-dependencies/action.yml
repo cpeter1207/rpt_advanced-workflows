@@ -1,0 +1,38 @@
+name: Install released rpt_advanced shared dependencies
+description: Download digest-verified Debian packages for the active native architecture.
+
+outputs:
+  package-directory:
+    value: ${{ steps.dependencies.outputs.package_directory }}
+
+runs:
+  using: composite
+  steps:
+    - id: dependencies
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        architecture=$(dpkg --print-architecture)
+        case "$architecture" in amd64|arm64) ;; *) exit 1 ;; esac
+        directory="$GITHUB_WORKSPACE/dependencies/packages"
+        mkdir -p "$directory"
+        download() {
+          repository=$1 tag=$2 package=$3
+          metadata=$(gh api "repos/cpeter1207/$repository/releases/tags/$tag")
+          asset=$(jq -er --arg package "$package" --arg architecture "$architecture" '
+            [.assets[] | select(.name | startswith($package + "_")) |
+              select(.name | endswith("_" + $architecture + ".deb"))] |
+            if length == 1 then .[0] else error("missing or ambiguous package asset") end
+          ' <<< "$metadata")
+          file="$directory/$(jq -r .name <<< "$asset")"
+          curl --fail --location --silent --show-error --retry 3 \
+            "$(jq -r .browser_download_url <<< "$asset")" --output "$file"
+          printf '%s  %s\n' "$(jq -er '.digest | ltrimstr("sha256:")' <<< "$asset")" "$file" | sha256sum -c -
+        }
+        download rate_adjusting_pcm_ring v2.0.0-alpha.1 librate-adjusting-pcm-ring2
+        download rate_adjusting_pcm_ring v2.0.0-alpha.1 librate-adjusting-pcm-ring2-dev
+        download rptadv-samplerate-adapter v0.1.0-alpha.1 librptadv-samplerate-adapter1
+        download rptadv-samplerate-adapter v0.1.0-alpha.1 librptadv-samplerate-adapter-dev
+        printf 'package_directory=%s\n' "$directory" >> "$GITHUB_OUTPUT"

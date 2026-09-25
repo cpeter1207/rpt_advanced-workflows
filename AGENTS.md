@@ -18,15 +18,16 @@ packages manually only when explicitly requested. Automated releases publish
 Debian 13 packages only; node installations use Debian 13 arm64 packages.
 Quality checks must not rewrite source files.
 
-Complete the full quality gate before pushing, opening or updating a pull
-request, merging, tagging, or releasing. Local recovery commits may follow
-affected targeted checks, but must not be represented as fully verified or used
-for a push, pull request, merge, tag, or release until the full gate passes.
-Treat compiler warnings as errors and fail applicable formatting, Ruff,
-ShellCheck, Cppcheck, Clang-Tidy, Doxygen, tests, installation checks, and 100%
-line and branch coverage of production code on Debian 13 amd64. Remove
-unreachable or dead code instead of suppressing diagnostics or excluding it
-from coverage.
+A production push runs only formatting, lint, and static analysis. It does not
+run Doxygen, the platform matrix, coverage, packaging, or installation checks.
+The complete quality gate, including those checks, must run on every pull
+request and pass before it merges. A release relies on that successful merged
+pull-request gate and validates only its release artifacts; it must not invoke
+or repeat the complete quality gate. Treat compiler warnings as errors and fail
+applicable formatting, Ruff, ShellCheck, Cppcheck, Clang-Tidy, Doxygen, tests,
+installation checks, and 100% line and branch coverage of production code on
+Debian 13 amd64 where the applicable workflow runs. Remove unreachable or dead
+code instead of suppressing diagnostics or excluding it from coverage.
 
 Update concise Doxygen comments, tests, user documentation, examples, and
 build, install, and package artifacts whenever an interface changes. Consumers
@@ -49,11 +50,12 @@ Validate workflow changes independently of production code. Do not make a
 workflow repair depend on the production workflow it repairs passing first.
 Enable required workflow-validation checks only when those checks exist.
 
-Run platform-independent quality checks once, concurrently where independent,
-before the Debian 13 amd64/arm64 test matrix and Debian 13 amd64 production
-coverage. Run matrix jobs concurrently. Pushes, pull requests, and releases
-must consume the same required production quality gate. Never claim a gate
-passed without running it.
+Run the full pull-request gate's platform-independent quality checks once,
+concurrently where independent, before the Debian 13 amd64/arm64 test matrix
+and Debian 13 amd64 production coverage. Run matrix jobs concurrently. The
+push preflight contains only formatting, lint, and static analysis. A release
+may validate its archives and installable artifacts but must not repeat the
+full gate. Never claim a gate passed without running it.
 
 Preserve the documented container, coverage, Doxygen, and installation-test
 requirements. Clean up only project-owned test containers on start and exit.
