@@ -13,6 +13,16 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Install dependency action tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v gh >/dev/null || ! command -v jq >/dev/null || ! command -v curl >/dev/null; then
+          privilege=()
+          if [[ "$(id -u)" != 0 ]]; then privilege=(sudo); fi
+          "${privilege[@]}" apt-get update
+          "${privilege[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gh jq
+        fi
     - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main
       with:
         install: 'false'
