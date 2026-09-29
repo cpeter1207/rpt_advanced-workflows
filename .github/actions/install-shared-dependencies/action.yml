@@ -1,6 +1,11 @@
 name: Install released rpt_advanced shared dependencies
 description: Download digest-verified Debian packages for the active native architecture.
 
+inputs:
+  install:
+    description: Install the selected packages into a Debian 13 validation job.
+    default: 'false'
+
 outputs:
   package-directory:
     value: ${{ steps.dependencies.outputs.package_directory }}
@@ -8,10 +13,24 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Install dependency action tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v gh >/dev/null || ! command -v jq >/dev/null || ! command -v curl >/dev/null; then
+          privilege=()
+          if [[ "$(id -u)" != 0 ]]; then privilege=(sudo); fi
+          "${privilege[@]}" apt-get update
+          "${privilege[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gh jq
+        fi
+    - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main
+      with:
+        install: 'false'
     - id: dependencies
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        INSTALL_PACKAGES: ${{ inputs.install }}
       run: |
         set -euo pipefail
         architecture=$(dpkg --print-architecture)
@@ -20,6 +39,9 @@ runs:
         mkdir -p "$directory"
         download() {
           repository=$1 tag=$2 package=$3
+          if [[ -f .github/dependencies.json ]] &&
+            jq -e --arg repository "$repository" 'any(.[]; .repository == $repository)' \
+              .github/dependencies.json >/dev/null; then return; fi
           metadata=$(gh api "repos/cpeter1207/$repository/releases/tags/$tag")
           asset=$(jq -er --arg package "$package" --arg architecture "$architecture" '
             [.assets[] | select(.name | startswith($package + "_")) |
@@ -35,4 +57,9 @@ runs:
         download rate_adjusting_pcm_ring v2.0.0-alpha.3 librate-adjusting-pcm-ring2-dev
         download rptadv-samplerate-adapter v0.1.0-alpha.2 librptadv-samplerate-adapter1
         download rptadv-samplerate-adapter v0.1.0-alpha.2 librptadv-samplerate-adapter-dev
+        if [[ "$INSTALL_PACKAGES" == true ]]; then
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y "$directory"/*.deb
+          ldconfig
+        fi
         printf 'package_directory=%s\n' "$directory" >> "$GITHUB_OUTPUT"

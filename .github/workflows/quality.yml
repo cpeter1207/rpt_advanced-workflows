@@ -19,6 +19,10 @@ jobs:
         with:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref || github.sha }}
+      - name: Install ABI-matched shared dependencies
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
+        with:
+          install: 'true'
       - name: Check formatting, analysis, and documentation concurrently
         run: make -j3 quality
   platforms:
@@ -39,6 +43,10 @@ jobs:
         with:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref || github.sha }}
+      - name: Install ABI-matched shared dependencies
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
+        with:
+          install: 'true'
       - name: Verify target architecture
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
@@ -56,6 +64,10 @@ jobs:
         with:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref || github.sha }}
+      - name: Install ABI-matched shared dependencies
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
+        with:
+          install: 'true'
       - name: Collect amd64 coverage
         run: make coverage
       - uses: actions/upload-artifact@v7
