@@ -2,6 +2,9 @@ name: Install released rpt_advanced shared dependencies
 description: Download digest-verified Debian packages for the active native architecture.
 
 inputs:
+  manifest:
+    description: Dependency manifest from the production checkout.
+    default: .github/dependencies.json
   install:
     description: Install the selected packages into a Debian 13 validation job.
     default: 'false'
@@ -25,12 +28,15 @@ runs:
         fi
     - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main
       with:
+        manifest: ${{ inputs.manifest }}
+        package-directory: dependencies/packages
         install: 'false'
     - id: dependencies
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
         INSTALL_PACKAGES: ${{ inputs.install }}
+        MANIFEST_PATH: ${{ inputs.manifest }}
       run: |
         set -euo pipefail
         architecture=$(dpkg --print-architecture)
@@ -39,9 +45,9 @@ runs:
         mkdir -p "$directory"
         download() {
           repository=$1 tag=$2 package=$3
-          if [[ -f .github/dependencies.json ]] &&
+          if [[ -f "$MANIFEST_PATH" ]] &&
             jq -e --arg repository "$repository" 'any(.[]; .repository == $repository)' \
-              .github/dependencies.json >/dev/null; then return; fi
+              "$MANIFEST_PATH" >/dev/null; then return; fi
           metadata=$(gh api "repos/cpeter1207/$repository/releases/tags/$tag")
           asset=$(jq -er --arg package "$package" --arg architecture "$architecture" '
             [.assets[] | select(.name | startswith($package + "_")) |
