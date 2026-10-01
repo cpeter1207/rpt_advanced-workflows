@@ -1,6 +1,12 @@
 name: Publish quality images
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      production_ref:
+        description: Production branch, tag, or commit whose dependency manifest this image will use
+        type: string
+        default: main
+        required: true
 permissions:
   contents: read
   packages: write
@@ -24,7 +30,14 @@ jobs:
         run: |
           docker ps -aq --filter label=rpt_advanced.test=true | xargs -r docker rm -f
       - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rpt_advanced
+          ref: ${{ inputs.production_ref }}
+          path: production
       - uses: ./.github/actions/install-shared-dependencies
+        with:
+          manifest: production/.github/dependencies.json
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -47,12 +60,16 @@ jobs:
           IMAGE: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:${{ github.sha }}-${{ matrix.arch }}
           ARCH: ${{ matrix.arch }}
         run: |
-          docker run --rm --label rpt_advanced.test=true -e ARCH "$IMAGE" sh -c '
+          expected_packages=$(jq -r '.[] | .packages[]' production/.github/dependencies.json)
+          test -n "$expected_packages"
+          docker run --rm --label rpt_advanced.test=true -e ARCH -e "EXPECTED_PACKAGES=$expected_packages" "$IMAGE" sh -c '
             test "$(dpkg --print-architecture)" = "$ARCH" &&
             test -f /usr/include/asterisk.h && test -f /usr/lib/llvm-*/lib/libclang.so &&
             asterisk -V && ffmpeg -version && cargo --version && rustc --version &&
             rustfmt --version && cargo clippy --version && rustdoc --version &&
-            dpkg-query -W librate-adjusting-pcm-ring2-dev librptadv-samplerate-adapter-dev &&
+            printf "%s\n" "$EXPECTED_PACKAGES" | while IFS= read -r package; do dpkg-query -W "$package"; done &&
+            find /usr/include -path "/usr/include/rate_adjusting_pcm_ring*/rate_adjusting_pcm_ring*.h" -print -quit | grep -q . &&
+            test -f /usr/include/rptadv_samplerate_adapter/rptadv_samplerate_adapter.h &&
             cc --version && clang-format --version && clang-tidy --version &&
             cppcheck --version && doxygen --version && ruff --version && gcovr --version &&
             cargo llvm-cov --version
