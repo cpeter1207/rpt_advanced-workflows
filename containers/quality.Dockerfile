@@ -2,11 +2,13 @@ ARG DEBIAN_VERSION=13
 ARG RUSTUP_INIT_VERSION=1.28.2
 ARG RUST_STABLE=1.85.0
 ARG RUST_NIGHTLY=nightly-2025-02-20
+ARG RUFF_VERSION=0.16.8
 FROM ghcr.io/cpeter1207/usbradioplus-quality-debian${DEBIAN_VERSION}:latest
 ARG TARGETARCH
 ARG RUSTUP_INIT_VERSION
 ARG RUST_STABLE
 ARG RUST_NIGHTLY
+ARG RUFF_VERSION
 ARG CARGO_LLVM_COV_VERSION=0.6.21
 LABEL org.opencontainers.image.source="https://github.com/cpeter1207/rpt_advanced-workflows"
 LABEL org.opencontainers.image.description="rpt_advanced ASL3 quality test environment"
@@ -15,8 +17,11 @@ ENV CARGO_HOME=/opt/cargo
 ENV PATH="/opt/cargo/bin:/opt/usbradioplus-quality/bin:${PATH}"
 COPY --from=dependencies . /tmp/dependencies/
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      curl ffmpeg libclang-dev /tmp/dependencies/*.deb && \
+      curl ffmpeg libclang-dev python3-pip /tmp/dependencies/*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/dependencies
+RUN python3 -m pip install --break-system-packages --no-cache-dir --disable-pip-version-check \
+      --no-deps "ruff==${RUFF_VERSION}" && \
+    ruff --version | grep -F "${RUFF_VERSION}"
 RUN case "${TARGETARCH}" in \
       amd64) rustup_host=x86_64-unknown-linux-gnu; rustup_sha=20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c ;; \
       arm64) rustup_host=aarch64-unknown-linux-gnu; rustup_sha=e3853c5a252fca15252d07cb23a1bdd9377a8c6f3efa01531109281ae47f841c ;; \
