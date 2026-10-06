@@ -68,6 +68,10 @@ jobs:
             asterisk -V && ffmpeg -version && cargo --version && rustc --version &&
             rustfmt --version && cargo clippy --version && rustdoc --version &&
             printf "%s\n" "$EXPECTED_PACKAGES" | while IFS= read -r package; do dpkg-query -W "$package"; done &&
+            pkg-config --exists rate_adjusting_pcm_ring3 rptadv_samplerate_adapter &&
+            test -f "$(pkg-config --variable=libdir rate_adjusting_pcm_ring3)/librate_adjusting_pcm_ring3.so.3" &&
+            test -f "$(pkg-config --variable=libdir rptadv_samplerate_adapter)/librptadv_samplerate_adapter.so.2" &&
+            test "$(pkg-config --variable=abi_version rptadv_samplerate_adapter)" = 2 &&
             find /usr/include -path "/usr/include/rate_adjusting_pcm_ring*/rate_adjusting_pcm_ring*.h" -print -quit | grep -q . &&
             test -f /usr/include/rptadv_samplerate_adapter/rptadv_samplerate_adapter.h &&
             cc --version && clang-format --version && clang-tidy --version &&
