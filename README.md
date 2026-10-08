@@ -15,8 +15,9 @@ production builds. Workflow validation runs independently on pull requests.
 
 The manually dispatched **Publish quality images** workflow builds Debian 13
 images on native amd64/arm64 runners. It provides the current Rust toolchain,
-FFmpeg, libclang, and released `rate_adjusting_pcm_ring` and
-`rptadv-samplerate-adapter` development packages. The `latest` manifest is
+FFmpeg, libclang, and the pinned `rate_adjusting_pcm_ring`, samplerate,
+radio-core, PortAudio/ALSA, GPIO, and FFmpeg-adapter development packages from
+the production dependency manifest. The `latest` manifest is
 updated only after both native builds pass. These are quality images, not
 clean-install or installed-release images.
 

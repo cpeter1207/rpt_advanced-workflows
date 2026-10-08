@@ -17,7 +17,7 @@ ENV CARGO_HOME=/opt/cargo
 ENV PATH="/opt/cargo/bin:/opt/usbradioplus-quality/bin:${PATH}"
 COPY --from=dependencies . /tmp/dependencies/
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      curl ffmpeg libclang-dev python3-pip /tmp/dependencies/*.deb && \
+      curl ffmpeg jq libclang-dev python3-pip /tmp/dependencies/*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/dependencies
 RUN python3 -m pip install --break-system-packages --no-cache-dir --disable-pip-version-check \
       --no-deps "ruff==${RUFF_VERSION}" && \
@@ -36,10 +36,11 @@ RUN case "${TARGETARCH}" in \
     /tmp/rustup-init -y --no-modify-path --default-toolchain none; \
     rm -f /tmp/rustup-init /tmp/rustup-init.sha256; \
     rustup toolchain install "${RUST_STABLE}" --profile minimal --component clippy --component rustfmt; \
-    rustup toolchain install "${RUST_NIGHTLY}" --profile minimal --component llvm-tools-preview; \
+    rustup toolchain install "${RUST_NIGHTLY}" --profile minimal --component llvm-tools-preview --component rustfmt; \
     rustup default "${RUST_STABLE}"; \
     cargo +"${RUST_NIGHTLY}" install cargo-llvm-cov --version "${CARGO_LLVM_COV_VERSION}" --locked; \
     rustc_version="$(rustc --version)"; case "$rustc_version" in *"${RUST_STABLE}"*) ;; *) exit 1 ;; esac; \
     rustfmt --version; \
+    cargo +"${RUST_NIGHTLY}" fmt --version; \
     coverage_version="$(cargo +"${RUST_NIGHTLY}" llvm-cov --version)"; case "$coverage_version" in *"${CARGO_LLVM_COV_VERSION}"*) ;; *) exit 1 ;; esac
 WORKDIR /work

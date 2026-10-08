@@ -66,7 +66,8 @@ jobs:
             test "$(dpkg --print-architecture)" = "$ARCH" &&
             test -f /usr/include/asterisk.h && test -f /usr/lib/llvm-*/lib/libclang.so &&
             asterisk -V && ffmpeg -version && cargo --version && rustc --version &&
-            rustfmt --version && cargo clippy --version && rustdoc --version &&
+            rustfmt --version && cargo +nightly-2025-02-20 fmt --version &&
+            cargo clippy --version && rustdoc --version &&
             printf "%s\n" "$EXPECTED_PACKAGES" | while IFS= read -r package; do dpkg-query -W "$package"; done &&
             pkg-config --exists rate_adjusting_pcm_ring3 rptadv_samplerate_adapter &&
             test -f "$(pkg-config --variable=libdir rate_adjusting_pcm_ring3)/librate_adjusting_pcm_ring3.so.3" &&
@@ -74,6 +75,11 @@ jobs:
             test "$(pkg-config --variable=abi_version rptadv_samplerate_adapter)" = 2 &&
             find /usr/include -path "/usr/include/rate_adjusting_pcm_ring*/rate_adjusting_pcm_ring*.h" -print -quit | grep -q . &&
             test -f /usr/include/rptadv_samplerate_adapter/rptadv_samplerate_adapter.h &&
+            test -f /usr/include/rptadvradio/rptadvradio.h &&
+            test -f /usr/include/rptadv_portaudio_alsa_adapter/rptadv_portaudio_alsa_adapter.h &&
+            test -f /usr/include/rptadv_gpio_adapter/rptadv_gpio_adapter.h &&
+            test -f /usr/include/rptadv_ffmpeg_adapter/rptadv_ffmpeg_adapter.h &&
+            jq --version &&
             cc --version && clang-format --version && clang-tidy --version &&
             cppcheck --version && doxygen --version && ruff --version && gcovr --version &&
             cargo llvm-cov --version
