@@ -79,6 +79,10 @@ jobs:
             test -f /usr/include/rptadv_portaudio_alsa_adapter/rptadv_portaudio_alsa_adapter.h &&
             test -f /usr/include/rptadv_gpio_adapter/rptadv_gpio_adapter.h &&
             test -f /usr/include/rptadv_ffmpeg_adapter/rptadv_ffmpeg_adapter.h &&
+            pkg-config --exists rptadv_iax2 &&
+            test "$(pkg-config --variable=abi_version rptadv_iax2)" = 1 &&
+            test -f /usr/include/rptadv_iax2/rptadv_iax2_client.h &&
+            test -f "$(pkg-config --variable=libdir rptadv_iax2)/librptadviax2.so.1" &&
             jq --version &&
             cc --version && clang-format --version && clang-tidy --version &&
             cppcheck --version && doxygen --version && ruff --version && gcovr --version &&
