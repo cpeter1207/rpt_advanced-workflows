@@ -63,8 +63,8 @@ runs:
         download rate_adjusting_pcm_ring v2.0.0-alpha.3 librate-adjusting-pcm-ring2-dev
         download rptadv-samplerate-adapter v0.1.0-alpha.2 librptadv-samplerate-adapter1
         download rptadv-samplerate-adapter v0.1.0-alpha.2 librptadv-samplerate-adapter-dev
-        download librptadviax2 v0.1.0-alpha3 librptadv-iax2-client1
-        download librptadviax2 v0.1.0-alpha3 librptadv-iax2-client-dev
+        download librptadviax2 v0.1.0-alpha4 librptadv-iax2-client1
+        download librptadviax2 v0.1.0-alpha4 librptadv-iax2-client-dev
         if [[ "$INSTALL_PACKAGES" == true ]]; then
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y "$directory"/*.deb
