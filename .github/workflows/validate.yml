@@ -12,4 +12,6 @@ jobs:
       - uses: actions/checkout@v7
       - name: Verify release package staging
         run: python3 tools/test_release_artifact_path.py
+      - name: Verify signed radio product inputs
+        run: python3 tools/test_radio_product_dependencies.py
       - uses: raven-actions/actionlint@v2

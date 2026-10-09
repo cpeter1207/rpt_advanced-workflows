@@ -17,9 +17,22 @@ The manually dispatched **Publish quality images** workflow builds Debian 13
 images on native amd64/arm64 runners. It provides the current Rust toolchain,
 FFmpeg, libclang, and the pinned `rate_adjusting_pcm_ring`, samplerate,
 radio-core, PortAudio/ALSA, GPIO, FFmpeg, and IAX2 development packages from
-the production dependency manifest. The `latest` manifest is
+the production dependency manifest. The radio product runtime and development
+packages (`libusbradioplus-product1` and `libusbradioplus-product-dev`) and their
+RNNoise runtime dependencies come from USBRadioPlus's existing signed Debian 13
+APT repository. Downloads use an isolated source/list directory and the
+established signing-key fingerprint; they do not change the runner's APT sources
+or install the USBRadioPlus Asterisk integration. The image verifies the product
+header, pkg-config ABI 1, and `libusbradioplus_product.so.1`. The `latest` manifest is
 updated only after both native builds pass. These are quality images, not
 clean-install or installed-release images.
+
+The shared-product extraction requires the USBRadioPlus runtime/development
+packages to be released into that signed repository first, then both native
+quality images to be refreshed with this workflow and the updated production
+dependency manifest. Only then can hosted rpt_advanced checks and package builds
+consume the new boundary. No unreleased package version is pinned here; local
+candidate packages do not satisfy this release/image-refresh prerequisite.
 
 **Publish verified ASL3 test images** resolves a production ref to one commit
 and builds clean ASL3 and installed-package images for Debian 13. It deliberately
