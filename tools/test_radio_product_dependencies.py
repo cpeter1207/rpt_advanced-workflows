@@ -26,12 +26,16 @@ class RadioProductDependencies(unittest.TestCase):
         )
         mocks = """
 curl() { touch "${@: -1}"; }
-gpg() { printf 'fpr:::::::::%s:\\n' "$TEST_FINGERPRINT"; }
+gpg() { printf '%s\\n' "$TEST_KEY_LIST"; }
 apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
 """
-        for fingerprint in (FINGERPRINT, "WRONG"):
+        for fingerprints, accepted in (
+            ((FINGERPRINT,), True),
+            (("WRONG",), False),
+            ((FINGERPRINT, "WRONG"), False),
+        ):
             with (
-                self.subTest(fingerprint=fingerprint),
+                self.subTest(fingerprints=fingerprints),
                 tempfile.TemporaryDirectory() as work,
             ):
                 log = Path(work) / "apt.log"
@@ -41,13 +45,16 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
                         os.environ,
                         GITHUB_WORKSPACE=work,
                         APT_LOG=str(log),
-                        TEST_FINGERPRINT=fingerprint,
+                        TEST_KEY_LIST="\n".join(
+                            f"pub::::::::::\nfpr:::::::::{fingerprint}:"
+                            for fingerprint in fingerprints
+                        ),
                     ),
                     text=True,
                     capture_output=True,
                     check=False,
                 )
-                if fingerprint != FINGERPRINT:
+                if not accepted:
                     self.assertNotEqual(result.returncode, 0)
                     self.assertFalse(log.exists())
                     continue
