@@ -1,5 +1,5 @@
 name: Install released rpt_advanced shared dependencies
-description: Download digest-verified Debian packages for the active native architecture.
+description: Download release-verified and signed-APT Debian packages for the active native architecture.
 
 inputs:
   manifest:
@@ -20,17 +20,42 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        if ! command -v gh >/dev/null || ! command -v jq >/dev/null || ! command -v curl >/dev/null; then
+        if ! command -v gh >/dev/null || ! command -v jq >/dev/null || ! command -v curl >/dev/null || ! command -v gpg >/dev/null; then
           privilege=()
           if [[ "$(id -u)" != 0 ]]; then privilege=(sudo); fi
           "${privilege[@]}" apt-get update
-          "${privilege[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gh jq
+          "${privilege[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gh jq gnupg
         fi
     - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main
       with:
         manifest: ${{ inputs.manifest }}
         package-directory: dependencies/packages
         install: 'false'
+    - name: Download signed radio product packages
+      shell: bash
+      run: |
+        set -euo pipefail
+        directory="$GITHUB_WORKSPACE/dependencies/packages"
+        mkdir -p "$directory"
+        temporary=$(mktemp -d)
+        trap 'rm -rf "$temporary"' EXIT
+        chmod 0755 "$temporary"
+        repository=https://cpeter1207.github.io/USBRadioPlus
+        curl --fail --location --silent --show-error --retry 3 \
+          "$repository/usbradioplus-archive-keyring.gpg" --output "$temporary/key.gpg"
+        fingerprint=$(gpg --batch --quiet --show-keys --with-colons "$temporary/key.gpg" |
+          awk -F: '$1 == "fpr" { print $10; exit }')
+        test "$fingerprint" = A0D5A79E0F5C45E9E63679950951502BAC795E55
+        printf 'deb [signed-by=%s] %s trixie main\n' \
+          "$temporary/key.gpg" "$repository" > "$temporary/sources.list"
+        mkdir "$temporary/lists"
+        options=(-o "Dir::Etc::sourcelist=$temporary/sources.list"
+          -o Dir::Etc::sourceparts=- -o "Dir::State::lists=$temporary/lists")
+        apt-get "${options[@]}" update
+        cd "$directory"
+        apt-get "${options[@]}" download \
+          libusbradioplus-product1 libusbradioplus-product-dev \
+          librptadv-rnnoise-adapter1 librnnoise0
     - id: dependencies
       shell: bash
       env:
