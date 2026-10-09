@@ -12,6 +12,9 @@ from pathlib import Path
 def main():
     """Verify release uploads and installed-image package staging."""
     installed_image = Path("containers/test.Dockerfile").read_text()
+    assert "app-rpt-advanced_*.deb" in installed_image, (
+        "installed image must stage the Asterisk adapter package"
+    )
     assert "librptadv-control-standalone-adapter1_*.deb" in installed_image, (
         "installed image must stage the standalone control adapter dependency"
     )
