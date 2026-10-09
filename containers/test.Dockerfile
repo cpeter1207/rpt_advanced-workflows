@@ -24,7 +24,8 @@ RUN DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b && make build/chan_rp
 FROM clean AS installed
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ffmpeg python3 && rm -rf /var/lib/apt/lists/*
-COPY --from=build /rpt-advanced_*.deb /librptadv-product1_*.deb \
+COPY --from=build /app-rpt-advanced_*.deb /rpt-advanced_*.deb \
+  /librptadv-product1_*.deb \
   /librptadv-file-adapter1_*.deb /librptadv-speech-adapter1_*.deb \
   /librptadv-control-asterisk-adapter1_*.deb \
   /librptadv-control-standalone-adapter1_*.deb /tmp/packages/
