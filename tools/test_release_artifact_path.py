@@ -10,7 +10,11 @@ from pathlib import Path
 
 
 def main():
-    """Require an upload-safe glob that includes the builder's package bytes."""
+    """Verify release uploads and installed-image package staging."""
+    installed_image = Path("containers/test.Dockerfile").read_text()
+    assert "librptadv-control-standalone-adapter1_*.deb" in installed_image, (
+        "installed image must stage the standalone control adapter dependency"
+    )
     workflow = Path(".github/workflows/release.yml").read_text()
     build = workflow.split("      - name: Build Debian packages\n", 1)[1]
     run = build.split("      - uses:", 1)[0].split("run:", 1)[1].strip()
