@@ -85,12 +85,22 @@ runs:
             "$(jq -r .browser_download_url <<< "$asset")" --output "$file"
           printf '%s  %s\n' "$(jq -er '.digest | ltrimstr("sha256:")' <<< "$asset")" "$file" | sha256sum -c -
         }
-        download rate_adjusting_pcm_ring v2.0.0-alpha.3 librate-adjusting-pcm-ring2
-        download rate_adjusting_pcm_ring v2.0.0-alpha.3 librate-adjusting-pcm-ring2-dev
-        download rptadv-samplerate-adapter v0.1.0-alpha.2 librptadv-samplerate-adapter1
-        download rptadv-samplerate-adapter v0.1.0-alpha.2 librptadv-samplerate-adapter-dev
+        download rate_adjusting_pcm_ring v3.0.0-alpha2 librate-adjusting-pcm-ring3
+        download rate_adjusting_pcm_ring v3.0.0-alpha2 librate-adjusting-pcm-ring3-dev
+        download rptadv-samplerate-adapter v0.2.0-alpha1 librptadv-samplerate-adapter2
+        download rptadv-samplerate-adapter v0.2.0-alpha1 librptadv-samplerate-adapter-dev
         download librptadviax2 v0.1.0-alpha4 librptadv-iax2-client1
         download librptadviax2 v0.1.0-alpha4 librptadv-iax2-client-dev
+        download librptadvradio v0.1.0-alpha.8 librptadvradio4
+        download librptadvradio v0.1.0-alpha.8 librptadvradio-dev
+        download rptadv-gpio-adapter v0.1.0-alpha.3 librptadv-gpio-adapter1
+        download rptadv-gpio-adapter v0.1.0-alpha.3 librptadv-gpio-adapter-dev
+        for component in squelch ctcss dcs signaling tone morse dtmf template schedule; do
+          abi=1 tag=v0.1.0-alpha.1
+          case "$component" in squelch|ctcss) abi=2 tag=v0.1.0-alpha.2 ;; esac
+          download "librptadv$component" "$tag" "librptadv${component}${abi}"
+          download "librptadv$component" "$tag" "librptadv${component}-dev"
+        done
         if [[ "$INSTALL_PACKAGES" == true ]]; then
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y "$directory"/*.deb

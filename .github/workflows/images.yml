@@ -79,6 +79,21 @@ jobs:
             test -f /usr/include/rptadv_portaudio_alsa_adapter/rptadv_portaudio_alsa_adapter.h &&
             test -f /usr/include/rptadv_gpio_adapter/rptadv_gpio_adapter.h &&
             test -f /usr/include/rptadv_ffmpeg_adapter/rptadv_ffmpeg_adapter.h &&
+            dpkg-query -W librptadvradio4 librptadvradio-dev &&
+            pkg-config --exists rptadvradio &&
+            test "$(pkg-config --variable=abi_version rptadvradio)" = 4 &&
+            test -f "$(pkg-config --variable=libdir rptadvradio)/librptadvradio.so.4" &&
+            dpkg-query -W librptadv-gpio-adapter1 librptadv-gpio-adapter-dev &&
+            pkg-config --exists rptadv_gpio_adapter &&
+            test -f "$(pkg-config --variable=libdir rptadv_gpio_adapter)/librptadv_gpio_adapter.so.1" &&
+            for component in squelch ctcss dcs signaling tone morse dtmf template schedule; do
+              abi=1
+              case "$component" in squelch|ctcss) abi=2 ;; esac
+              dpkg-query -W "librptadv${component}${abi}" "librptadv${component}-dev" &&
+              pkg-config --exists "rptadv${component}" &&
+              test "$(pkg-config --variable=abi_version "rptadv${component}")" = "$abi" &&
+              test -f "$(pkg-config --variable=libdir "rptadv${component}")/librptadv${component}.so.$abi" || exit 1
+            done &&
             dpkg-query -W libusbradioplus-product1 libusbradioplus-product-dev &&
             pkg-config --exists usbradioplus_product &&
             test "$(pkg-config --variable=abi_version usbradioplus_product)" = 1 &&
