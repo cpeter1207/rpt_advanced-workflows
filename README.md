@@ -17,9 +17,10 @@ The manually dispatched **Publish quality images** workflow builds Debian 13
 images on native amd64/arm64 runners. It provides the current Rust toolchain,
 FFmpeg, libclang, pinned ring, samplerate, PortAudio/ALSA, and FFmpeg
 development packages from the production dependency manifest, and released
-radio-core, GPIO, IAX2, and nine functional-provider packages. Radio uses ABI 4;
-squelch, CTCSS, DCS, signaling, tone, Morse, DTMF, template, and schedule use
-ABI 1. The radio product runtime and development
+radio-core, GPIO, IAX2, and nine functional-provider packages. Radio uses ABI 4
+from v0.1.0-alpha.8; squelch and CTCSS use ABI 2 from v0.1.0-alpha.2, while
+DCS, signaling, tone, Morse, DTMF, template, and schedule remain ABI 1. The
+radio product runtime and development
 packages (`libusbradioplus-product1` and `libusbradioplus-product-dev`) and their
 RNNoise runtime dependencies come from USBRadioPlus's existing signed Debian 13
 APT repository. Downloads use an isolated source/list directory and the

@@ -131,13 +131,16 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
                 "librptadviax2 v0.1.0-alpha4 librptadv-iax2-client-dev",
             }
             for repository, tag, runtime, development in (
-                ("librptadvradio", "v0.1.0-alpha.7", "librptadvradio4", "librptadvradio-dev"),
+                ("librptadvradio", "v0.1.0-alpha.8", "librptadvradio4", "librptadvradio-dev"),
                 ("rptadv-gpio-adapter", "v0.1.0-alpha.3", "librptadv-gpio-adapter1",
                  "librptadv-gpio-adapter-dev"),
+                ("librptadvsquelch", "v0.1.0-alpha.2", "librptadvsquelch2",
+                 "librptadvsquelch-dev"),
+                ("librptadvctcss", "v0.1.0-alpha.2", "librptadvctcss2",
+                 "librptadvctcss-dev"),
                 *((f"librptadv{name}", "v0.1.0-alpha.1", f"librptadv{name}1",
                    f"librptadv{name}-dev") for name in (
-                    "squelch", "ctcss", "dcs", "signaling", "tone", "morse",
-                    "dtmf", "template", "schedule",
+                    "dcs", "signaling", "tone", "morse", "dtmf", "template", "schedule",
                 )),
             ):
                 expected.add(f"{repository} {tag} {runtime}")
@@ -167,14 +170,17 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
             'set -eu\n'
             'dpkg-query() { printf "%s\\n" "$@" >> "$PACKAGE_LOG"; }\n'
             'pkg-config() { case "$1" in --exists) return 0;; '
-            '--variable=abi_version) printf 1;; '
+            '--variable=abi_version) case "$2" in '
+            'rptadvsquelch|rptadvctcss) printf "%s" "${ABI2:-2}";; '
+            '*) printf 1;; esac;; '
             '--variable=libdir) printf "%s" "$LIBDIR";; esac; }\n'
             + textwrap.dedent(match.group(0)).removesuffix(" &&")
         )
         with tempfile.TemporaryDirectory() as work:
             directory = Path(work)
             for name in components:
-                (directory / f"librptadv{name}.so.1").touch()
+                abi = 2 if name in ("squelch", "ctcss") else 1
+                (directory / f"librptadv{name}.so.{abi}").touch()
             log = directory / "packages.log"
             environment = dict(os.environ, LIBDIR=str(directory), PACKAGE_LOG=str(log))
             result = subprocess.run(["bash", "-c", script], env=environment,
@@ -182,8 +188,13 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(set(log.read_text().splitlines()) - {"-W"}, {
                 package for name in components
-                for package in (f"librptadv{name}1", f"librptadv{name}-dev")
+                for package in (f"librptadv{name}{2 if name in ('squelch', 'ctcss') else 1}",
+                                f"librptadv{name}-dev")
             })
+            result = subprocess.run(["bash", "-c", script],
+                                    env=dict(environment, ABI2="1"),
+                                    text=True, capture_output=True, check=False)
+            self.assertNotEqual(result.returncode, 0, "ABI 1 must fail for ABI 2 providers")
             (directory / "librptadvmorse.so.1").unlink()
             result = subprocess.run(["bash", "-c", script], env=environment,
                                     text=True, capture_output=True, check=False)

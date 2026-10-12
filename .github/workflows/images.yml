@@ -87,10 +87,12 @@ jobs:
             pkg-config --exists rptadv_gpio_adapter &&
             test -f "$(pkg-config --variable=libdir rptadv_gpio_adapter)/librptadv_gpio_adapter.so.1" &&
             for component in squelch ctcss dcs signaling tone morse dtmf template schedule; do
-              dpkg-query -W "librptadv${component}1" "librptadv${component}-dev" &&
+              abi=1
+              case "$component" in squelch|ctcss) abi=2 ;; esac
+              dpkg-query -W "librptadv${component}${abi}" "librptadv${component}-dev" &&
               pkg-config --exists "rptadv${component}" &&
-              test "$(pkg-config --variable=abi_version "rptadv${component}")" = 1 &&
-              test -f "$(pkg-config --variable=libdir "rptadv${component}")/librptadv${component}.so.1" || exit 1
+              test "$(pkg-config --variable=abi_version "rptadv${component}")" = "$abi" &&
+              test -f "$(pkg-config --variable=libdir "rptadv${component}")/librptadv${component}.so.$abi" || exit 1
             done &&
             dpkg-query -W libusbradioplus-product1 libusbradioplus-product-dev &&
             pkg-config --exists usbradioplus_product &&
