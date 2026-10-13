@@ -17,7 +17,7 @@ ENV CARGO_HOME=/opt/cargo
 ENV PATH="/opt/cargo/bin:/opt/usbradioplus-quality/bin:${PATH}"
 COPY --from=dependencies . /tmp/dependencies/
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      curl ffmpeg jq libclang-dev python3-pip /tmp/dependencies/*.deb && \
+      curl ffmpeg jq libclang-dev libspeexdsp1 libspeexdsp-dev python3-pip /tmp/dependencies/*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/dependencies
 RUN python3 -m pip install --break-system-packages --no-cache-dir --disable-pip-version-check \
       --no-deps "ruff==${RUFF_VERSION}" && \
