@@ -18,6 +18,9 @@ def main():
     assert "librptadv-control-standalone-adapter1_*.deb" in installed_image, (
         "installed image must stage the standalone control adapter dependency"
     )
+    assert "librptadv-resolver-adapter1_*.deb" in installed_image, (
+        "installed image must stage the standalone resolver dependency"
+    )
     workflow = Path(".github/workflows/release.yml").read_text()
     build = workflow.split("      - name: Build Debian packages\n", 1)[1]
     run = build.split("      - uses:", 1)[0].split("run:", 1)[1].strip()
