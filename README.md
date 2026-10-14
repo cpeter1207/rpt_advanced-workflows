@@ -15,9 +15,10 @@ production builds. Workflow validation runs independently on pull requests.
 
 The manually dispatched **Publish quality images** workflow builds Debian 13
 images on native amd64/arm64 runners. It provides the current Rust toolchain,
-FFmpeg, libclang, pinned ring, samplerate, PortAudio/ALSA, and FFmpeg
-development packages from the production dependency manifest, and released
-radio-core, GPIO, IAX2, and nine functional-provider packages. Radio uses ABI 4
+FFmpeg, libclang, and SpeexDSP runtime and development files. It also installs
+pinned ring, samplerate, PortAudio/ALSA, and FFmpeg development packages from
+the production dependency manifest, plus released radio-core, GPIO, IAX2, and
+nine functional-provider packages. Radio uses ABI 4
 from v0.1.0-alpha.8; squelch and CTCSS use ABI 2 from v0.1.0-alpha.2, while
 DCS, signaling, tone, Morse, DTMF, template, and schedule remain ABI 1. The
 radio product runtime and development
