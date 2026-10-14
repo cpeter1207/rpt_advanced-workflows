@@ -29,7 +29,8 @@ COPY --from=build /app-rpt-advanced_*.deb /rpt-advanced_*.deb \
   /librptadv-file-adapter1_*.deb /librptadv-speech-adapter1_*.deb \
   /librptadv-control-asterisk-adapter1_*.deb \
   /librptadv-control-standalone-adapter1_*.deb \
-  /librptadv-resolver-adapter1_*.deb /tmp/packages/
+  /librptadv-resolver-adapter1_*.deb \
+  /librptadv-jitter-adapter1_*.deb /tmp/packages/
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends /tmp/packages/*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/packages
 RUN ldconfig
