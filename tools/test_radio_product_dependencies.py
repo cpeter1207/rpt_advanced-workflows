@@ -127,8 +127,8 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
                 "rate_adjusting_pcm_ring v3.0.0-alpha2 librate-adjusting-pcm-ring3-dev",
                 "rptadv-samplerate-adapter v0.2.0-alpha1 librptadv-samplerate-adapter2",
                 "rptadv-samplerate-adapter v0.2.0-alpha1 librptadv-samplerate-adapter-dev",
-                "librptadviax2 v0.1.0-alpha4 librptadv-iax2-client1",
-                "librptadviax2 v0.1.0-alpha4 librptadv-iax2-client-dev",
+                "librptadviax2 v0.1.0-alpha5 librptadv-iax2-client1",
+                "librptadviax2 v0.1.0-alpha5 librptadv-iax2-client-dev",
             }
             for repository, tag, runtime, development in (
                 ("librptadvradio", "v0.1.0-alpha.8", "librptadvradio4", "librptadvradio-dev"),
