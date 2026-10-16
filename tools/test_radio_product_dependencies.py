@@ -138,9 +138,11 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
                  "librptadvsquelch-dev"),
                 ("librptadvctcss", "v0.1.0-alpha.2", "librptadvctcss2",
                  "librptadvctcss-dev"),
+                ("librptadvdtmf", "v0.1.0-alpha.2", "librptadvdtmf1",
+                 "librptadvdtmf-dev"),
                 *((f"librptadv{name}", "v0.1.0-alpha.1", f"librptadv{name}1",
                    f"librptadv{name}-dev") for name in (
-                    "dcs", "signaling", "tone", "morse", "dtmf", "template", "schedule",
+                    "dcs", "signaling", "tone", "morse", "template", "schedule",
                 )),
             ):
                 expected.add(f"{repository} {tag} {runtime}")
