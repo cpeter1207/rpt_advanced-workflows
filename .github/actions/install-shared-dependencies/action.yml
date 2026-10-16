@@ -97,7 +97,10 @@ runs:
         download rptadv-gpio-adapter v0.1.0-alpha.3 librptadv-gpio-adapter-dev
         for component in squelch ctcss dcs signaling tone morse dtmf template schedule; do
           abi=1 tag=v0.1.0-alpha.1
-          case "$component" in squelch|ctcss) abi=2 tag=v0.1.0-alpha.2 ;; esac
+          case "$component" in
+            squelch|ctcss) abi=2 tag=v0.1.0-alpha.2 ;;
+            dtmf) tag=v0.1.0-alpha.2 ;;
+          esac
           download "librptadv$component" "$tag" "librptadv${component}${abi}"
           download "librptadv$component" "$tag" "librptadv${component}-dev"
         done
