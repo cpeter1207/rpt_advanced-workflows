@@ -28,11 +28,14 @@ class RadioProductDependencies(unittest.TestCase):
 curl() { touch "${@: -1}"; }
 gpg() { printf '%s\\n' "$TEST_KEY_LIST"; }
 apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
+dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
 """
-        for fingerprints, accepted in (
-            ((FINGERPRINT,), True),
-            (("WRONG",), False),
-            ((FINGERPRINT, "WRONG"), False),
+        for fingerprints, version, accepted in (
+            ((FINGERPRINT,), "0.1.0~alpha24-1.deb13", True),
+            ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", True),
+            ((FINGERPRINT,), "0.1.0~alpha23-1.deb13", False),
+            (("WRONG",), "0.1.0~alpha24-1.deb13", False),
+            ((FINGERPRINT, "WRONG"), "0.1.0~alpha24-1.deb13", False),
         ):
             with (
                 self.subTest(fingerprints=fingerprints),
@@ -45,6 +48,7 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
                         os.environ,
                         GITHUB_WORKSPACE=work,
                         APT_LOG=str(log),
+                        TEST_USB_VERSION=version,
                         TEST_KEY_LIST="\n".join(
                             f"pub::::::::::\nfpr:::::::::{fingerprint}:"
                             for fingerprint in fingerprints
@@ -56,7 +60,8 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
                 )
                 if not accepted:
                     self.assertNotEqual(result.returncode, 0)
-                    self.assertFalse(log.exists())
+                    if fingerprints != (FINGERPRINT,):
+                        self.assertFalse(log.exists())
                     continue
                 self.assertEqual(result.returncode, 0, result.stderr)
                 calls = log.read_text().splitlines()
@@ -96,30 +101,48 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
         self.assertIn("/usr/include/usbradioplus_product.h", source)
         self.assertIn("/libusbradioplus_product.so.1", source)
 
+    def test_image_supplies_site_adapter_dependencies(self):
+        dockerfile = (ROOT / "containers/quality.Dockerfile").read_text()
+        verification = (ROOT / ".github/workflows/images.yml").read_text()
+        for package in ("libsensors-dev", "libsensors5", "libgpiod-dev", "libgpiod3"):
+            self.assertIn(package, dockerfile)
+            self.assertIn(package, verification)
+        for header in ("/usr/include/sensors/sensors.h", "/usr/include/gpiod.h"):
+            self.assertIn(header, verification)
+        self.assertIn("0.1.0~alpha24-1.deb13", verification)
+
     def test_image_verification_shell(self):
         source = (ROOT / ".github/workflows/images.yml").read_text()
-        script = source.split("\"$IMAGE\" sh -c '\n", 1)[1].split("\n          '\n", 1)[0]
+        script = source.split('"$IMAGE" sh -c \'\n', 1)[1].split("\n          '\n", 1)[
+            0
+        ]
         subprocess.run(
             ["shellcheck", "--shell=sh", "-"],
-            input=textwrap.dedent(script), text=True, check=True,
+            input=textwrap.dedent(script),
+            text=True,
+            check=True,
         )
 
     def test_controller_download_route_selects_released_owners_and_providers(self):
-        source = (ROOT / ".github/actions/install-shared-dependencies/action.yml").read_text()
-        route = source.split(
-            "        download rate_adjusting_pcm_ring", 1
-        )[1].split('        if [[ "$INSTALL_PACKAGES" == true ]]; then', 1)[0]
+        source = (
+            ROOT / ".github/actions/install-shared-dependencies/action.yml"
+        ).read_text()
+        route = source.split("        download rate_adjusting_pcm_ring", 1)[1].split(
+            '        if [[ "$INSTALL_PACKAGES" == true ]]; then', 1
+        )[0]
         script = (
-            'set -euo pipefail\n'
+            "set -euo pipefail\n"
             'download() { printf "%s\\n" "$*" >> "$DOWNLOAD_LOG"; }\n'
-            'download rate_adjusting_pcm_ring ' + textwrap.dedent(route)
+            "download rate_adjusting_pcm_ring " + textwrap.dedent(route)
         )
         with tempfile.TemporaryDirectory() as work:
             log = Path(work) / "downloads.log"
             result = subprocess.run(
                 ["bash", "-c", script],
                 env=dict(os.environ, DOWNLOAD_LOG=str(log)),
-                text=True, capture_output=True, check=False,
+                text=True,
+                capture_output=True,
+                check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             expected = {
@@ -131,19 +154,52 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
                 "librptadviax2 v0.1.0-alpha5 librptadv-iax2-client-dev",
             }
             for repository, tag, runtime, development in (
-                ("librptadvradio", "v0.1.0-alpha.8", "librptadvradio4", "librptadvradio-dev"),
-                ("rptadv-gpio-adapter", "v0.1.0-alpha.3", "librptadv-gpio-adapter1",
-                 "librptadv-gpio-adapter-dev"),
-                ("librptadvsquelch", "v0.1.0-alpha.2", "librptadvsquelch2",
-                 "librptadvsquelch-dev"),
-                ("librptadvctcss", "v0.1.0-alpha.2", "librptadvctcss2",
-                 "librptadvctcss-dev"),
-                ("librptadvdtmf", "v0.1.0-alpha.2", "librptadvdtmf1",
-                 "librptadvdtmf-dev"),
-                *((f"librptadv{name}", "v0.1.0-alpha.1", f"librptadv{name}1",
-                   f"librptadv{name}-dev") for name in (
-                    "dcs", "signaling", "tone", "morse", "template", "schedule",
-                )),
+                (
+                    "librptadvradio",
+                    "v0.1.0-alpha.8",
+                    "librptadvradio4",
+                    "librptadvradio-dev",
+                ),
+                (
+                    "rptadv-gpio-adapter",
+                    "v0.1.0-alpha.4",
+                    "librptadv-gpio-adapter1",
+                    "librptadv-gpio-adapter-dev",
+                ),
+                (
+                    "librptadvsquelch",
+                    "v0.1.0-alpha.2",
+                    "librptadvsquelch2",
+                    "librptadvsquelch-dev",
+                ),
+                (
+                    "librptadvctcss",
+                    "v0.1.0-alpha.2",
+                    "librptadvctcss2",
+                    "librptadvctcss-dev",
+                ),
+                (
+                    "librptadvdtmf",
+                    "v0.1.0-alpha.2",
+                    "librptadvdtmf1",
+                    "librptadvdtmf-dev",
+                ),
+                *(
+                    (
+                        f"librptadv{name}",
+                        "v0.1.0-alpha.1",
+                        f"librptadv{name}1",
+                        f"librptadv{name}-dev",
+                    )
+                    for name in (
+                        "dcs",
+                        "signaling",
+                        "tone",
+                        "morse",
+                        "template",
+                        "schedule",
+                    )
+                ),
             ):
                 expected.add(f"{repository} {tag} {runtime}")
                 expected.add(f"{repository} {tag} {development}")
@@ -155,7 +211,11 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
         source = (ROOT / ".github/workflows/images.yml").read_text()
         for package, pc_name, soname in (
             ("librptadvradio4", "rptadvradio", "librptadvradio.so.4"),
-            ("librptadv-gpio-adapter1", "rptadv_gpio_adapter", "librptadv_gpio_adapter.so.1"),
+            (
+                "librptadv-gpio-adapter1",
+                "rptadv_gpio_adapter",
+                "librptadv_gpio_adapter.so.1",
+            ),
         ):
             with self.subTest(package=package):
                 self.assertIn(package, source)
@@ -163,18 +223,31 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
                 self.assertIn(soname, source)
         self.assertIn('pkg-config --variable=abi_version rptadvradio)" = 4', source)
 
-        components = ("squelch", "ctcss", "dcs", "signaling", "tone", "morse",
-                      "dtmf", "template", "schedule")
-        match = re.search(r"for component in ([^;]+); do\n(.*?)\n            done &&", source, re.DOTALL)
+        components = (
+            "squelch",
+            "ctcss",
+            "dcs",
+            "signaling",
+            "tone",
+            "morse",
+            "dtmf",
+            "template",
+            "schedule",
+        )
+        match = re.search(
+            r"for component in ([^;]+); do\n(.*?)\n            done &&",
+            source,
+            re.DOTALL,
+        )
         self.assertIsNotNone(match, "provider image-verification loop missing")
         self.assertEqual(match.group(1).split(), list(components))
         script = (
-            'set -eu\n'
+            "set -eu\n"
             'dpkg-query() { printf "%s\\n" "$@" >> "$PACKAGE_LOG"; }\n'
             'pkg-config() { case "$1" in --exists) return 0;; '
             '--variable=abi_version) case "$2" in '
             'rptadvsquelch|rptadvctcss) printf "%s" "${ABI2:-2}";; '
-            '*) printf 1;; esac;; '
+            "*) printf 1;; esac;; "
             '--variable=libdir) printf "%s" "$LIBDIR";; esac; }\n'
             + textwrap.dedent(match.group(0)).removesuffix(" &&")
         )
@@ -185,21 +258,43 @@ apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
                 (directory / f"librptadv{name}.so.{abi}").touch()
             log = directory / "packages.log"
             environment = dict(os.environ, LIBDIR=str(directory), PACKAGE_LOG=str(log))
-            result = subprocess.run(["bash", "-c", script], env=environment,
-                                    text=True, capture_output=True, check=False)
+            result = subprocess.run(
+                ["bash", "-c", script],
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(set(log.read_text().splitlines()) - {"-W"}, {
-                package for name in components
-                for package in (f"librptadv{name}{2 if name in ('squelch', 'ctcss') else 1}",
-                                f"librptadv{name}-dev")
-            })
-            result = subprocess.run(["bash", "-c", script],
-                                    env=dict(environment, ABI2="1"),
-                                    text=True, capture_output=True, check=False)
-            self.assertNotEqual(result.returncode, 0, "ABI 1 must fail for ABI 2 providers")
+            self.assertEqual(
+                set(log.read_text().splitlines()) - {"-W"},
+                {
+                    package
+                    for name in components
+                    for package in (
+                        f"librptadv{name}{2 if name in ('squelch', 'ctcss') else 1}",
+                        f"librptadv{name}-dev",
+                    )
+                },
+            )
+            result = subprocess.run(
+                ["bash", "-c", script],
+                env=dict(environment, ABI2="1"),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(
+                result.returncode, 0, "ABI 1 must fail for ABI 2 providers"
+            )
             (directory / "librptadvmorse.so.1").unlink()
-            result = subprocess.run(["bash", "-c", script], env=environment,
-                                    text=True, capture_output=True, check=False)
+            result = subprocess.run(
+                ["bash", "-c", script],
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
             self.assertNotEqual(result.returncode, 0)
 
 

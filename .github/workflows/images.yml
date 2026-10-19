@@ -66,6 +66,9 @@ jobs:
             test "$(dpkg --print-architecture)" = "$ARCH" &&
             test -f /usr/include/asterisk.h && test -f /usr/lib/llvm-*/lib/libclang.so &&
             dpkg-query -W libspeexdsp1 libspeexdsp-dev &&
+            dpkg-query -W libsensors5 libsensors-dev libgpiod3 libgpiod-dev &&
+            pkg-config --atleast-version=2.2 libgpiod &&
+            test -f /usr/include/sensors/sensors.h && test -f /usr/include/gpiod.h &&
             pkg-config --exists speexdsp &&
             test -f /usr/include/speex/speex_jitter.h &&
             test -f "$(pkg-config --variable=libdir speexdsp)/libspeexdsp.so.1" &&
@@ -99,6 +102,8 @@ jobs:
               test -f "$(pkg-config --variable=libdir "rptadv${component}")/librptadv${component}.so.$abi" || exit 1
             done &&
             dpkg-query -W libusbradioplus-product1 libusbradioplus-product-dev &&
+            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product1)" ge 0.1.0~alpha24-1.deb13 &&
+            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product-dev)" ge 0.1.0~alpha24-1.deb13 &&
             pkg-config --exists usbradioplus_product &&
             test "$(pkg-config --variable=abi_version usbradioplus_product)" = 1 &&
             test -f /usr/include/usbradioplus_product.h &&
