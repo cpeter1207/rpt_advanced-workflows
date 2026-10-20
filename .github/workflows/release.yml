@@ -77,6 +77,10 @@ jobs:
         with:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref }}
+      - name: Install ABI-matched shared dependencies
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
+        with:
+          install: 'true'
       - name: Build Debian packages
         run: |
           DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b
