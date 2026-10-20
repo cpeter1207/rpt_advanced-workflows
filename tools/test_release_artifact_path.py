@@ -22,6 +22,18 @@ def main():
         "installed image must stage the standalone resolver dependency"
     )
     workflow = Path(".github/workflows/release.yml").read_text()
+    package_job = workflow.split("  packages:\n", 1)[1].split("  publish:\n", 1)[0]
+    steps = re.split(r"(?m)^      - ", package_job)[1:]
+    assert steps[0].startswith("uses: actions/checkout@"), "checkout must run first"
+    dependency_step = steps[1]
+    assert re.search(
+        r"(?m)^\s+uses: cpeter1207/rpt_advanced-workflows/"
+        r"\.github/actions/install-shared-dependencies@main$",
+        dependency_step,
+    ), "release must prepare selected dependencies immediately after checkout"
+    assert re.search(r"(?m)^\s+install: ['\"]?true['\"]?\s*$", dependency_step), (
+        "release must install dependencies over the base image's packages"
+    )
     build = workflow.split("      - name: Build Debian packages\n", 1)[1]
     run = build.split("      - uses:", 1)[0].split("run:", 1)[1].strip()
     if run.startswith("|\n"):

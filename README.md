@@ -54,6 +54,8 @@ The reusable **Verified source release** workflow accepts version-tag callers.
 It requires the tagged main commit to be the merged result of a pull request,
 requires its source tree to match that pull request's successful full quality
 gate, then runs artifact-specific image publication and Debian package builds.
+Package builds reinstall the shared dependencies selected by that production
+revision before compiling, so the quality image cannot supply a stale SDK.
 It does not repeat the full gate. Both images, Debian 13 amd64/arm64 packages,
 and the source archive use the caller's exact commit. Tags with a suffix are
 GitHub prereleases. Creating or editing workflow code does not create a release;
