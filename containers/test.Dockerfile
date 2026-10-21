@@ -16,6 +16,10 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     rm -rf /var/lib/apt/lists/* /tmp/asl-repo.deb /tmp/dependencies
 
 FROM ghcr.io/cpeter1207/rpt-advanced-quality-debian${DEBIAN_VERSION}:latest AS build
+COPY --from=dependencies . /tmp/dependencies/
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y --no-install-recommends \
+      /tmp/dependencies/*.deb && \
+    rm -rf /var/lib/apt/lists/* /tmp/dependencies
 WORKDIR /source
 # The caller binds this named context to the exact tested production revision.
 COPY --from=production . ./
