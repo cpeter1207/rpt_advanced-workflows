@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the signed-APT radio product input without network or installation."""
+"""Verify dependency downloads without external network or installation."""
 
 import os
 import re
