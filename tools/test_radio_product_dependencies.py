@@ -3,10 +3,14 @@
 
 import os
 import re
+import socket
+import struct
 import subprocess
 import tempfile
 import textwrap
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +18,60 @@ FINGERPRINT = "A0D5A79E0F5C45E9E63679950951502BAC795E55"
 
 
 class RadioProductDependencies(unittest.TestCase):
+    def test_dependency_downloads_retry_connection_resets_with_bounded_attempts(self):
+        source = (
+            ROOT / ".github/actions/install-shared-dependencies/action.yml"
+        ).read_text()
+        commands = re.findall(r"(?m)^ *curl [^\n]*\\\n[^\n]+", source)
+        self.assertEqual(len(commands), 2)
+
+        class ResetThenServe(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.server.attempts += 1
+                if self.server.attempts <= self.server.failures:
+                    self.connection.setsockopt(
+                        socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
+                    )
+                    self.close_connection = True
+                    self.connection.close()
+                    return
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"verified dependency fixture")
+
+            def log_message(self, _format, *args):
+                pass
+
+        for index, command in enumerate(commands):
+            for failures, accepted, attempts in ((1, True, 2), (10, False, 4)):
+                with (
+                    self.subTest(download=index, failures=failures),
+                    tempfile.TemporaryDirectory() as work,
+                    HTTPServer(("127.0.0.1", 0), ResetThenServe) as server,
+                ):
+                    server.attempts = 0
+                    server.failures = failures
+                    thread = threading.Thread(target=server.serve_forever)
+                    thread.start()
+                    url = f"http://127.0.0.1:{server.server_port}"
+                    try:
+                        result = subprocess.run(
+                            ["bash", "-c", command],
+                            env=dict(os.environ, repository=url, temporary=work,
+                                     file=str(Path(work) / "package.deb"),
+                                     asset='{"browser_download_url":"' + url + '/package"}'),
+                            text=True, capture_output=True, check=False,
+                        )
+                    finally:
+                        server.shutdown()
+                        thread.join()
+                    self.assertEqual(result.returncode == 0, accepted, result.stderr)
+                    self.assertEqual(server.attempts, attempts)
+                    if accepted:
+                        payloads = list(Path(work).iterdir())
+                        self.assertEqual(len(payloads), 1)
+                        self.assertEqual(payloads[0].read_bytes(), b"verified dependency fixture")
+
     def test_signed_download_is_scoped_and_rejects_wrong_key(self):
         source = (
             ROOT / ".github/actions/install-shared-dependencies/action.yml"
