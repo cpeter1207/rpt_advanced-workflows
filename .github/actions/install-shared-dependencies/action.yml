@@ -41,7 +41,7 @@ runs:
         trap 'rm -rf "$temporary"' EXIT
         chmod 0755 "$temporary"
         repository=https://cpeter1207.github.io/USBRadioPlus
-        curl --fail --location --silent --show-error --retry 3 \
+        curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
           "$repository/usbradioplus-archive-keyring.gpg" --output "$temporary/key.gpg"
         fingerprints=$(gpg --batch --quiet --show-keys --with-colons "$temporary/key.gpg" |
           awk -F: '$1 == "pub" { primary = 1; next }
@@ -84,7 +84,7 @@ runs:
             if length == 1 then .[0] else error("missing or ambiguous package asset") end
           ' <<< "$metadata")
           file="$directory/$(jq -r .name <<< "$asset")"
-          curl --fail --location --silent --show-error --retry 3 \
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
             "$(jq -r .browser_download_url <<< "$asset")" --output "$file"
           printf '%s  %s\n' "$(jq -er '.digest | ltrimstr("sha256:")' <<< "$asset")" "$file" | sha256sum -c -
         }
