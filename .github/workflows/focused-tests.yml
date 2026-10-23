@@ -1,0 +1,72 @@
+name: Focused Rust verification
+run-name: Focused ${{ inputs.check }} / ${{ inputs.package }} / ${{ inputs.code_ref }}
+on:
+  workflow_dispatch:
+    inputs:
+      code_ref:
+        description: Exact 40-character rpt_advanced commit SHA.
+        type: string
+        required: true
+      check:
+        description: Run focused tests, fast push checks, or developer documentation.
+        type: choice
+        options: [tests, preflight, rustdoc]
+        default: tests
+      package:
+        description: Rust package to test or document.
+        type: choice
+        options: [rpt-advanced-core, rptadv-product, rpt-advanced-standalone]
+        default: rpt-advanced-core
+      test_filter:
+        description: Optional Rust test name or module path; empty runs the package tests.
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest
+    env:
+      CODE_REF: ${{ inputs.code_ref }}
+      CHECK: ${{ inputs.check }}
+      PACKAGE: ${{ inputs.package }}
+      TEST_FILTER: ${{ inputs.test_filter }}
+    steps:
+      - name: Validate selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CODE_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TEST_FILTER" =~ ^[A-Za-z0-9_:]*$ ]]
+          case "$CHECK" in tests|preflight|rustdoc) ;; *) exit 1 ;; esac
+          case "$PACKAGE" in rpt-advanced-core|rptadv-product|rpt-advanced-standalone) ;; *) exit 1 ;; esac
+      - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rpt_advanced
+          ref: ${{ inputs.code_ref }}
+          persist-credentials: false
+      - name: Verify source revision
+        run: test "$(git rev-parse HEAD)" = "$CODE_REF"
+      - name: Install ABI-matched shared dependencies
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
+        with:
+          install: 'true'
+      - name: Run selected verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LIBRARY_PATH="$PWD/target/release${LIBRARY_PATH:+:$LIBRARY_PATH}"
+          export LD_LIBRARY_PATH="$PWD/build${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          export RPT_ADVANCED_LIBDIR="$PWD/build"
+          case "$CHECK" in
+            preflight) make -j2 lint static-analysis ;;
+            rustdoc) RUSTDOCFLAGS='-D warnings' cargo doc --locked -p "$PACKAGE" --no-deps ;;
+            tests)
+              if [[ "$PACKAGE" != rpt-advanced-core ]]; then make rust-build; fi
+              selected=$(cargo test --locked -p "$PACKAGE" "$TEST_FILTER" -- --list)
+              grep -q ': test$' <<< "$selected"
+              cargo test --locked -p "$PACKAGE" "$TEST_FILTER"
+              ;;
+          esac
