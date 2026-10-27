@@ -7,6 +7,18 @@ WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/focused-test
 
 
 class FocusedCoverage(unittest.TestCase):
+    def test_failed_selected_tests_still_report_and_remain_failed(self):
+        source = WORKFLOW.read_text()
+        self.assertIn("|| test_status=$?", source)
+        self.assertLess(
+            source.index("|| test_status=$?"),
+            source.index("cargo llvm-cov report --release"),
+        )
+        self.assertLess(
+            source.index("cargo llvm-cov report --release"),
+            source.index('exit "$test_status"'),
+        )
+
     def test_coverage_is_selectable_and_retains_its_report(self):
         source = WORKFLOW.read_text()
         for required in [

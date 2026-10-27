@@ -74,9 +74,11 @@ jobs:
               export LIBRARY_PATH="$CARGO_TARGET_DIR/release${LIBRARY_PATH:+:$LIBRARY_PATH}"
               selected=$(cargo test --locked --release -p "$PACKAGE" "$TEST_FILTER" -- --list)
               grep -q ': test$' <<< "$selected"
-              cargo test --locked --release -p "$PACKAGE" "$TEST_FILTER"
+              test_status=0
+              cargo test --locked --release -p "$PACKAGE" "$TEST_FILTER" || test_status=$?
               mkdir -p build/coverage
               cargo llvm-cov report --release --json --output-path build/coverage/focused.json
+              exit "$test_status"
               ;;
             tests)
               if [[ "$PACKAGE" != rpt-advanced-core ]]; then make rust-build; fi
