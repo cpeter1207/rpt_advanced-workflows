@@ -15,7 +15,14 @@ on:
       package:
         description: Rust package to test or document.
         type: choice
-        options: [rpt-advanced-core, rptadv-product, rpt-advanced-standalone]
+        options:
+          - rpt-advanced-core
+          - rptadv-product
+          - rpt-advanced-standalone
+          - rptadv-asterisk-adapter
+          - rptadv-jitter-adapter
+          - rptadv-file-adapter
+          - rptadv-speech-adapter
         default: rpt-advanced-core
       test_filter:
         description: Optional Rust test name or module path; empty runs the package tests.
@@ -41,7 +48,7 @@ jobs:
           [[ "$CODE_REF" =~ ^[0-9a-f]{40}$ ]]
           [[ "$TEST_FILTER" =~ ^[A-Za-z0-9_:]*$ ]]
           case "$CHECK" in tests|preflight|rustdoc|coverage) ;; *) exit 1 ;; esac
-          case "$PACKAGE" in rpt-advanced-core|rptadv-product|rpt-advanced-standalone) ;; *) exit 1 ;; esac
+          case "$PACKAGE" in rpt-advanced-core|rptadv-product|rpt-advanced-standalone|rptadv-asterisk-adapter|rptadv-jitter-adapter|rptadv-file-adapter|rptadv-speech-adapter) ;; *) exit 1 ;; esac
       - uses: actions/checkout@v7
         with:
           repository: cpeter1207/rpt_advanced

@@ -28,6 +28,16 @@ class FocusedCoverage(unittest.TestCase):
         ]:
             self.assertTrue(required in source, required)
 
+    def test_changed_adapter_packages_can_be_measured_separately(self):
+        source = WORKFLOW.read_text()
+        for package in [
+            "rptadv-asterisk-adapter",
+            "rptadv-jitter-adapter",
+            "rptadv-file-adapter",
+            "rptadv-speech-adapter",
+        ]:
+            self.assertEqual(source.count(package), 2)
+
     def test_coverage_uses_one_instrumented_generation_and_selected_tests(self):
         source = WORKFLOW.read_text()
         for required in [
