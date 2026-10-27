@@ -8,9 +8,9 @@ on:
         type: string
         required: true
       check:
-        description: Run focused tests, fast push checks, or developer documentation.
+        description: Run focused tests, coverage diagnostics, fast checks, or developer docs.
         type: choice
-        options: [tests, preflight, rustdoc]
+        options: [tests, preflight, rustdoc, coverage]
         default: tests
       package:
         description: Rust package to test or document.
@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           [[ "$CODE_REF" =~ ^[0-9a-f]{40}$ ]]
           [[ "$TEST_FILTER" =~ ^[A-Za-z0-9_:]*$ ]]
-          case "$CHECK" in tests|preflight|rustdoc) ;; *) exit 1 ;; esac
+          case "$CHECK" in tests|preflight|rustdoc|coverage) ;; *) exit 1 ;; esac
           case "$PACKAGE" in rpt-advanced-core|rptadv-product|rpt-advanced-standalone) ;; *) exit 1 ;; esac
       - uses: actions/checkout@v7
         with:
@@ -63,6 +63,21 @@ jobs:
           case "$CHECK" in
             preflight) make -j2 lint static-analysis ;;
             rustdoc) RUSTDOCFLAGS='-D warnings' cargo doc --locked -p "$PACKAGE" --no-deps ;;
+            coverage)
+              # Diagnostic report for the selected tests, not full-gate acceptance.
+              export RUSTUP_TOOLCHAIN=nightly-2025-02-20
+              export CARGO_TARGET_DIR="$PWD/target/focused-coverage"
+              export CARGO_LLVM_COV_TARGET_DIR="$CARGO_TARGET_DIR"
+              eval "$(cargo llvm-cov show-env --branch --export-prefix)"
+              cargo llvm-cov clean --workspace
+              if [[ "$PACKAGE" != rpt-advanced-core ]]; then make rust-build; fi
+              export LIBRARY_PATH="$CARGO_TARGET_DIR/release${LIBRARY_PATH:+:$LIBRARY_PATH}"
+              selected=$(cargo test --locked --release -p "$PACKAGE" "$TEST_FILTER" -- --list)
+              grep -q ': test$' <<< "$selected"
+              cargo test --locked --release -p "$PACKAGE" "$TEST_FILTER"
+              mkdir -p build/coverage
+              cargo llvm-cov report --release --json --output-path build/coverage/focused.json
+              ;;
             tests)
               if [[ "$PACKAGE" != rpt-advanced-core ]]; then make rust-build; fi
               selected=$(cargo test --locked -p "$PACKAGE" "$TEST_FILTER" -- --list)
@@ -70,3 +85,9 @@ jobs:
               cargo test --locked -p "$PACKAGE" "$TEST_FILTER"
               ;;
           esac
+      - uses: actions/upload-artifact@v7
+        if: always() && inputs.check == 'coverage'
+        with:
+          name: focused-coverage-${{ inputs.package }}
+          path: build/coverage/focused.json
+          if-no-files-found: warn
