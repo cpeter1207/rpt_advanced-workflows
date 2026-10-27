@@ -50,7 +50,7 @@ jobs:
       - name: Verify source revision
         run: test "$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD)" = "$CODE_REF"
       - name: Install ABI-matched shared dependencies
-        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@ci/focused-checkout-ownership
         with:
           install: 'true'
       - name: Run selected verification

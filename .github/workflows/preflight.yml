@@ -20,7 +20,7 @@ jobs:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref || github.sha }}
       - name: Install ABI-matched shared dependencies
-        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@ci/focused-checkout-ownership
         with:
           install: 'true'
       - name: Check formatting, lint, and static analysis

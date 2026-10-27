@@ -26,7 +26,7 @@ runs:
           "${privilege[@]}" apt-get update
           "${privilege[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gh jq gnupg
         fi
-    - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main
+    - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@ci/codec-provider-image
       with:
         manifest: ${{ inputs.manifest }}
         package-directory: dependencies/packages
