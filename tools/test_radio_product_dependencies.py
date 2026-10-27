@@ -57,10 +57,16 @@ class RadioProductDependencies(unittest.TestCase):
                     try:
                         result = subprocess.run(
                             ["bash", "-c", command],
-                            env=dict(os.environ, repository=url, temporary=work,
-                                     file=str(Path(work) / "package.deb"),
-                                     asset='{"browser_download_url":"' + url + '/package"}'),
-                            text=True, capture_output=True, check=False,
+                            env=dict(
+                                os.environ,
+                                repository=url,
+                                temporary=work,
+                                file=str(Path(work) / "package.deb"),
+                                asset='{"browser_download_url":"' + url + '/package"}',
+                            ),
+                            text=True,
+                            capture_output=True,
+                            check=False,
                         )
                     finally:
                         server.shutdown()
@@ -70,7 +76,9 @@ class RadioProductDependencies(unittest.TestCase):
                     if accepted:
                         payloads = list(Path(work).iterdir())
                         self.assertEqual(len(payloads), 1)
-                        self.assertEqual(payloads[0].read_bytes(), b"verified dependency fixture")
+                        self.assertEqual(
+                            payloads[0].read_bytes(), b"verified dependency fixture"
+                        )
 
     def test_signed_download_is_scoped_and_rejects_wrong_key(self):
         source = (
