@@ -189,6 +189,50 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
             check=True,
         )
 
+    def test_image_iax_probe_requires_the_installed_abi2_library(self):
+        source = (ROOT / ".github/workflows/images.yml").read_text()
+        probe = source.split("            pkg-config --exists rptadv_iax2 &&\n", 1)[
+            1
+        ].split("            jq --version &&\n", 1)[0]
+        tools = """
+pkg-config() {
+    case "$1" in
+        --variable=abi_version) printf '%s\\n' "$TEST_ABI" ;;
+        --variable=libdir) printf '%s\\n' "$TEST_LIBDIR" ;;
+        *) return 1 ;;
+    esac
+}
+"""
+        for abi, available, accepted in (
+            (2, True, True),
+            (1, True, False),
+            (2, False, False),
+        ):
+            with (
+                self.subTest(abi=abi, available=available),
+                tempfile.TemporaryDirectory() as work,
+            ):
+                root = Path(work)
+                header = root / "rptadv_iax2_client.h"
+                header.touch()
+                if available:
+                    (root / "librptadviax2.so.2").touch()
+                script = (
+                    probe.replace(
+                        "/usr/include/rptadv_iax2/rptadv_iax2_client.h", str(header)
+                    )
+                    .rstrip()
+                    .removesuffix("&&")
+                )
+                result = subprocess.run(
+                    ["bash", "-ec", tools + script],
+                    env=dict(os.environ, TEST_ABI=str(abi), TEST_LIBDIR=work),
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode == 0, accepted, result.stderr)
+
     def test_controller_download_route_selects_released_owners_and_providers(self):
         source = (
             ROOT / ".github/actions/install-shared-dependencies/action.yml"
