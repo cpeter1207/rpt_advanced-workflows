@@ -41,7 +41,7 @@ RUN ldconfig
 WORKDIR /opt/rpt-testing
 # Test fixtures remain separate from the installed module and its configuration.
 COPY --from=build /source/build/chan_rpt_fixture.so ./build/
-COPY --from=build /source/tests/test_rust_asterisk_lifecycle.py /source/tests/test_asterisk_integration.py /source/tests/test_link_integration.py ./tests/
+COPY --from=build /source/tests/test_rust_asterisk_lifecycle.py /source/tests/test_asterisk_integration.py /source/tests/test_link_integration.py /source/tests/echolink_fixture.py ./tests/
 RUN mkdir -p lib/asterisk/modules lib/rpt_advanced \
       build/stage/usr/share/doc/rpt-advanced/examples && \
     cp /usr/lib/*/asterisk/modules/app_rpt_advanced.so lib/asterisk/modules/ && \
