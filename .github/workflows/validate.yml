@@ -14,4 +14,6 @@ jobs:
         run: python3 tools/test_release_artifact_path.py
       - name: Verify signed radio product inputs
         run: python3 tools/test_radio_product_dependencies.py
+      - name: Verify focused coverage runner
+        run: python3 tools/test_focused_coverage.py
       - uses: raven-actions/actionlint@v2

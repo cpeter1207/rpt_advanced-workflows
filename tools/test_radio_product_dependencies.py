@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify dependency downloads without external network or installation."""
 
+import json
 import os
 import re
 import socket
@@ -57,10 +58,16 @@ class RadioProductDependencies(unittest.TestCase):
                     try:
                         result = subprocess.run(
                             ["bash", "-c", command],
-                            env=dict(os.environ, repository=url, temporary=work,
-                                     file=str(Path(work) / "package.deb"),
-                                     asset='{"browser_download_url":"' + url + '/package"}'),
-                            text=True, capture_output=True, check=False,
+                            env=dict(
+                                os.environ,
+                                repository=url,
+                                temporary=work,
+                                file=str(Path(work) / "package.deb"),
+                                asset='{"browser_download_url":"' + url + '/package"}',
+                            ),
+                            text=True,
+                            capture_output=True,
+                            check=False,
                         )
                     finally:
                         server.shutdown()
@@ -70,7 +77,9 @@ class RadioProductDependencies(unittest.TestCase):
                     if accepted:
                         payloads = list(Path(work).iterdir())
                         self.assertEqual(len(payloads), 1)
-                        self.assertEqual(payloads[0].read_bytes(), b"verified dependency fixture")
+                        self.assertEqual(
+                            payloads[0].read_bytes(), b"verified dependency fixture"
+                        )
 
     def test_signed_download_is_scoped_and_rejects_wrong_key(self):
         source = (
@@ -85,27 +94,40 @@ class RadioProductDependencies(unittest.TestCase):
         mocks = """
 curl() { touch "${@: -1}"; }
 gpg() { printf '%s\\n' "$TEST_KEY_LIST"; }
-apt-get() { printf '%s\\n' "$*" >> "$APT_LOG"; }
+apt-get() {
+    printf '%s\\n' "$*" >> "$APT_LOG"
+    if [[ "$*" == *" download librptadv-jitter-adapter1" ]]; then
+        printf fixture > librptadv-jitter-adapter1_test_amd64.deb
+    fi
+}
 dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
 """
-        for fingerprints, version, accepted in (
-            ((FINGERPRINT,), "0.1.0~alpha24-1.deb13", True),
-            ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", True),
-            ((FINGERPRINT,), "0.1.0~alpha23-1.deb13", False),
-            (("WRONG",), "0.1.0~alpha24-1.deb13", False),
-            ((FINGERPRINT, "WRONG"), "0.1.0~alpha24-1.deb13", False),
+        for fingerprints, version, accepted, echolink in (
+            ((FINGERPRINT,), "0.1.0~alpha24-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha23-1.deb13", False, False),
+            (("WRONG",), "0.1.0~alpha24-1.deb13", False, False),
+            ((FINGERPRINT, "WRONG"), "0.1.0~alpha24-1.deb13", False, False),
+            ((FINGERPRINT,), "0.1.0~alpha24-1.deb13", True, True),
         ):
             with (
                 self.subTest(fingerprints=fingerprints),
                 tempfile.TemporaryDirectory() as work,
             ):
                 log = Path(work) / "apt.log"
+                manifest = Path(work) / "dependencies.json"
+                manifest.write_text(
+                    json.dumps(
+                        [{"repository": "librptadvecholink"}] if echolink else []
+                    )
+                )
                 result = subprocess.run(
                     ["bash", "-c", mocks + script],
                     env=dict(
                         os.environ,
                         GITHUB_WORKSPACE=work,
                         APT_LOG=str(log),
+                        MANIFEST_PATH=str(manifest),
                         TEST_USB_VERSION=version,
                         TEST_KEY_LIST="\n".join(
                             f"pub::::::::::\nfpr:::::::::{fingerprint}:"
@@ -123,12 +145,12 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
                     continue
                 self.assertEqual(result.returncode, 0, result.stderr)
                 calls = log.read_text().splitlines()
-                self.assertEqual(len(calls), 2)
+                self.assertEqual(len(calls), 2 + echolink)
                 self.assertIn("Dir::Etc::sourceparts=-", calls[0])
                 self.assertIn("Dir::State::lists=", calls[0])
                 self.assertTrue(calls[0].endswith(" update"))
                 self.assertEqual(
-                    calls[1].split(" download ", 1)[1].split(),
+                    calls[-1].split(" download ", 1)[1].split(),
                     [
                         "libusbradioplus-product1",
                         "libusbradioplus-product-dev",
@@ -136,6 +158,16 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
                         "librnnoise0",
                     ],
                 )
+                if echolink:
+                    packages = Path(work) / "dependencies/packages"
+                    runtime = "librptadv-jitter-adapter1_test_amd64.deb"
+                    self.assertTrue(
+                        calls[1].endswith(" download librptadv-jitter-adapter1")
+                    )
+                    self.assertEqual(
+                        (packages / "bootstrap" / runtime).read_bytes(), b"fixture"
+                    )
+                    self.assertEqual((packages / runtime).read_bytes(), b"fixture")
 
     def test_action_shell_programs(self):
         source = (
@@ -180,6 +212,50 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
             text=True,
             check=True,
         )
+
+    def test_image_iax_probe_requires_the_installed_abi2_library(self):
+        source = (ROOT / ".github/workflows/images.yml").read_text()
+        probe = source.split("            pkg-config --exists rptadv_iax2 &&\n", 1)[
+            1
+        ].split("            jq --version &&\n", 1)[0]
+        tools = """
+pkg-config() {
+    case "$1" in
+        --variable=abi_version) printf '%s\\n' "$TEST_ABI" ;;
+        --variable=libdir) printf '%s\\n' "$TEST_LIBDIR" ;;
+        *) return 1 ;;
+    esac
+}
+"""
+        for abi, available, accepted in (
+            (2, True, True),
+            (1, True, False),
+            (2, False, False),
+        ):
+            with (
+                self.subTest(abi=abi, available=available),
+                tempfile.TemporaryDirectory() as work,
+            ):
+                root = Path(work)
+                header = root / "rptadv_iax2_client.h"
+                header.touch()
+                if available:
+                    (root / "librptadviax2.so.2").touch()
+                script = (
+                    probe.replace(
+                        "/usr/include/rptadv_iax2/rptadv_iax2_client.h", str(header)
+                    )
+                    .rstrip()
+                    .removesuffix("&&")
+                )
+                result = subprocess.run(
+                    ["bash", "-ec", tools + script],
+                    env=dict(os.environ, TEST_ABI=str(abi), TEST_LIBDIR=work),
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode == 0, accepted, result.stderr)
 
     def test_controller_download_route_selects_released_owners_and_providers(self):
         source = (

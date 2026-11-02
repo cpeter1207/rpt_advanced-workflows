@@ -32,6 +32,12 @@ owner/provider pkg-config metadata and SONAMEs. The `latest` manifest is
 updated only after both native builds pass. These are quality images, not
 clean-install or installed-release images.
 
+When a dependency manifest selects EchoLink, the same signed repository supplies
+the released jitter runtime in `dependencies/packages/bootstrap/`. Candidate
+build containers install that prerequisite before building EchoLink. The returned
+package set also contains the runtime for clean images; installed-source images
+reinstall their own freshly built packages over any same-version prerequisite.
+
 The functional-library extraction requires all nine providers and updated
 radio/GPIO owner releases, followed by refreshed USBRadioPlus consumer packages
 in the signed repository, before these dependency pins are merged and both

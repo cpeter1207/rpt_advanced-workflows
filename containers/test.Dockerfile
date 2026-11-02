@@ -29,23 +29,23 @@ FROM clean AS installed
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ffmpeg python3 && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app-rpt-advanced_*.deb /rpt-advanced_*.deb \
-  /librptadv-product1_*.deb \
+  /librptadv-product2_*.deb \
   /librptadv-file-adapter1_*.deb /librptadv-speech-adapter1_*.deb \
   /librptadv-control-asterisk-adapter1_*.deb \
   /librptadv-control-standalone-adapter1_*.deb \
   /librptadv-resolver-adapter1_*.deb \
   /librptadv-jitter-adapter1_*.deb /tmp/packages/
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends /tmp/packages/*.deb && \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y --no-install-recommends /tmp/packages/*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/packages
 RUN ldconfig
 WORKDIR /opt/rpt-testing
 # Test fixtures remain separate from the installed module and its configuration.
 COPY --from=build /source/build/chan_rpt_fixture.so ./build/
-COPY --from=build /source/tests/test_rust_asterisk_lifecycle.py /source/tests/test_asterisk_integration.py /source/tests/test_link_integration.py ./tests/
+COPY --from=build /source/tests/test_rust_asterisk_lifecycle.py /source/tests/test_asterisk_integration.py /source/tests/test_link_integration.py /source/tests/echolink_fixture.py ./tests/
 RUN mkdir -p lib/asterisk/modules lib/rpt_advanced \
       build/stage/usr/share/doc/rpt-advanced/examples && \
     cp /usr/lib/*/asterisk/modules/app_rpt_advanced.so lib/asterisk/modules/ && \
-    cp /usr/lib/*/rpt_advanced/librptadv_*.so.1* lib/rpt_advanced/ && \
+    cp /usr/lib/*/rpt_advanced/librptadv_*.so.* lib/rpt_advanced/ && \
     cp build/chan_rpt_fixture.so lib/asterisk/modules/ && \
     cp /usr/share/doc/rpt-advanced/examples/rpt_advanced.conf \
       build/stage/usr/share/doc/rpt-advanced/examples/ && \
