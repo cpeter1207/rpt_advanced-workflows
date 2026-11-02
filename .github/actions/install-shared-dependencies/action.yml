@@ -26,13 +26,10 @@ runs:
           "${privilege[@]}" apt-get update
           "${privilege[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gh jq gnupg
         fi
-    - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main
-      with:
-        manifest: ${{ inputs.manifest }}
-        package-directory: dependencies/packages
-        install: 'false'
     - name: Download signed radio product packages
       shell: bash
+      env:
+        MANIFEST_PATH: ${{ inputs.manifest }}
       run: |
         set -euo pipefail
         directory="$GITHUB_WORKSPACE/dependencies/packages"
@@ -53,6 +50,12 @@ runs:
         options=(-o "Dir::Etc::sourcelist=$temporary/sources.list"
           -o Dir::Etc::sourceparts=- -o "Dir::State::lists=$temporary/lists")
         apt-get "${options[@]}" update
+        if [[ -f "${MANIFEST_PATH:-}" ]] &&
+          jq -e 'any(.[]; .repository == "librptadvecholink")' "$MANIFEST_PATH" >/dev/null; then
+          mkdir -p "$directory/bootstrap"
+          (cd "$directory/bootstrap" && apt-get "${options[@]}" download librptadv-jitter-adapter1)
+          cp "$directory/bootstrap"/*.deb "$directory/"
+        fi
         cd "$directory"
         apt-get "${options[@]}" download \
           libusbradioplus-product1 libusbradioplus-product-dev \
@@ -60,6 +63,11 @@ runs:
         for package in libusbradioplus-product1_*.deb libusbradioplus-product-dev_*.deb; do
           dpkg --compare-versions "$(dpkg-deb -f "$package" Version)" ge 0.1.0~alpha24-1.deb13
         done
+    - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main
+      with:
+        manifest: ${{ inputs.manifest }}
+        package-directory: dependencies/packages
+        install: 'false'
     - id: dependencies
       shell: bash
       env:
