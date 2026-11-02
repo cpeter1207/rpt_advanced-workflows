@@ -78,6 +78,13 @@ quality gate` pull-request check; it prohibits force pushes and branch deletion.
 This workflow repository requires only its independent `validate` check, so a
 workflow repair never depends on the production workflow it repairs.
 
+The **Focused Rust verification** dispatch accepts `check=integration` with an
+exact production commit. After installing that revision's candidate dependencies,
+it runs the existing `make integration` target, including the real Asterisk
+lifecycle fixture, without coverage. The workflow unsets its SDK override for
+that command so the production Makefile must select the source-built SDK itself.
+This targeted check does not replace the complete pull-request gate.
+
 ## Local production-workspace containers
 
 `tools/run-in-quality-container.sh IMAGE WORKSPACE COMMAND [ARG...]` runs an

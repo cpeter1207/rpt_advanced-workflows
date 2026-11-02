@@ -8,9 +8,9 @@ on:
         type: string
         required: true
       check:
-        description: Run focused tests, coverage diagnostics, fast checks, or developer docs.
+        description: Run focused tests, host integration, coverage diagnostics, fast checks, or docs.
         type: choice
-        options: [tests, preflight, rustdoc, coverage]
+        options: [tests, preflight, rustdoc, coverage, integration]
         default: tests
       package:
         description: Rust package to test or document.
@@ -47,7 +47,7 @@ jobs:
           set -euo pipefail
           [[ "$CODE_REF" =~ ^[0-9a-f]{40}$ ]]
           [[ "$TEST_FILTER" =~ ^[A-Za-z0-9_:]*$ ]]
-          case "$CHECK" in tests|preflight|rustdoc|coverage) ;; *) exit 1 ;; esac
+          case "$CHECK" in tests|preflight|rustdoc|coverage|integration) ;; *) exit 1 ;; esac
           case "$PACKAGE" in rpt-advanced-core|rptadv-product|rpt-advanced-standalone|rptadv-asterisk-adapter|rptadv-jitter-adapter|rptadv-file-adapter|rptadv-speech-adapter) ;; *) exit 1 ;; esac
       - uses: actions/checkout@v7
         with:
@@ -68,6 +68,7 @@ jobs:
           export LD_LIBRARY_PATH="$PWD/build${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           export RPT_ADVANCED_LIBDIR="$PWD/build"
           case "$CHECK" in
+            integration) env -u RPT_ADVANCED_LIBDIR make integration ;;
             preflight) make -j2 lint static-analysis ;;
             rustdoc) RUSTDOCFLAGS='-D warnings' cargo doc --locked -p "$PACKAGE" --no-deps ;;
             coverage)
