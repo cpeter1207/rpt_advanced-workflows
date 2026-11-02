@@ -29,7 +29,7 @@ FROM clean AS installed
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ffmpeg python3 && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app-rpt-advanced_*.deb /rpt-advanced_*.deb \
-  /librptadv-product1_*.deb \
+  /librptadv-product2_*.deb \
   /librptadv-file-adapter1_*.deb /librptadv-speech-adapter1_*.deb \
   /librptadv-control-asterisk-adapter1_*.deb \
   /librptadv-control-standalone-adapter1_*.deb \
@@ -45,7 +45,7 @@ COPY --from=build /source/tests/test_rust_asterisk_lifecycle.py /source/tests/te
 RUN mkdir -p lib/asterisk/modules lib/rpt_advanced \
       build/stage/usr/share/doc/rpt-advanced/examples && \
     cp /usr/lib/*/asterisk/modules/app_rpt_advanced.so lib/asterisk/modules/ && \
-    cp /usr/lib/*/rpt_advanced/librptadv_*.so.1* lib/rpt_advanced/ && \
+    cp /usr/lib/*/rpt_advanced/librptadv_*.so.* lib/rpt_advanced/ && \
     cp build/chan_rpt_fixture.so lib/asterisk/modules/ && \
     cp /usr/share/doc/rpt-advanced/examples/rpt_advanced.conf \
       build/stage/usr/share/doc/rpt-advanced/examples/ && \
