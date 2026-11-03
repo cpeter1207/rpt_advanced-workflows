@@ -16,6 +16,7 @@ ENV RUSTUP_HOME=/opt/rustup
 ENV CARGO_HOME=/opt/cargo
 ENV PATH="/opt/cargo/bin:/opt/usbradioplus-quality/bin:${PATH}"
 COPY --from=dependencies . /tmp/dependencies/
+COPY tools/check_native_product_sdk.c /usr/local/libexec/rpt-advanced/check_native_product_sdk.c
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       curl ffmpeg jq libclang-dev libspeexdsp1 libspeexdsp-dev \
       libsensors5 libsensors-dev libgpiod3 libgpiod-dev python3-pip /tmp/dependencies/*.deb && \

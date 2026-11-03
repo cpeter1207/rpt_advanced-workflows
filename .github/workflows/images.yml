@@ -102,12 +102,14 @@ jobs:
               test -f "$(pkg-config --variable=libdir "rptadv${component}")/librptadv${component}.so.$abi" || exit 1
             done &&
             dpkg-query -W libusbradioplus-product1 libusbradioplus-product-dev &&
-            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product1)" ge 0.1.0~alpha24-1.deb13 &&
-            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product-dev)" ge 0.1.0~alpha24-1.deb13 &&
+            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product1)" ge 0.1.0~alpha26-1.deb13 &&
+            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product-dev)" ge 0.1.0~alpha26-1.deb13 &&
             pkg-config --exists usbradioplus_product &&
             test "$(pkg-config --variable=abi_version usbradioplus_product)" = 1 &&
             test -f /usr/include/usbradioplus_product.h &&
             test -f "$(pkg-config --variable=libdir usbradioplus_product)/libusbradioplus_product.so.1" &&
+            cc -std=c11 -Wall -Wextra -Werror /usr/local/libexec/rpt-advanced/check_native_product_sdk.c -ldl -o /tmp/check-native-product-sdk &&
+            /tmp/check-native-product-sdk && rm /tmp/check-native-product-sdk &&
             pkg-config --exists rptadv_iax2 &&
             test "$(pkg-config --variable=abi_version rptadv_iax2)" = 2 &&
             test -f /usr/include/rptadv_iax2/rptadv_iax2_client.h &&

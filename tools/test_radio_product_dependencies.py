@@ -103,12 +103,12 @@ apt-get() {
 dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
 """
         for fingerprints, version, accepted, echolink in (
-            ((FINGERPRINT,), "0.1.0~alpha24-1.deb13", True, False),
-            ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", True, False),
-            ((FINGERPRINT,), "0.1.0~alpha23-1.deb13", False, False),
-            (("WRONG",), "0.1.0~alpha24-1.deb13", False, False),
-            ((FINGERPRINT, "WRONG"), "0.1.0~alpha24-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha24-1.deb13", True, True),
+            ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha27-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", False, False),
+            (("WRONG",), "0.1.0~alpha26-1.deb13", False, False),
+            ((FINGERPRINT, "WRONG"), "0.1.0~alpha26-1.deb13", False, False),
+            ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", True, True),
         ):
             with (
                 self.subTest(fingerprints=fingerprints),
@@ -190,6 +190,115 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
         )
         self.assertIn("/usr/include/usbradioplus_product.h", source)
         self.assertIn("/libusbradioplus_product.so.1", source)
+        self.assertIn("/tmp/check-native-product-sdk &&", source)
+        self.assertIn("check_native_product_sdk.c", source)
+        dockerfile = (ROOT / "containers/quality.Dockerfile").read_text()
+        self.assertIn("COPY tools/check_native_product_sdk.c", dockerfile)
+
+    def test_native_sdk_probe_rejects_mixed_headers_and_runtime_tables(self):
+        callbacks = (
+            "native_create",
+            "native_start",
+            "native_stop",
+            "native_destroy",
+            "link_destroy",
+            "native_processing_validate",
+            "native_link_prepare",
+            "link_process_f32",
+        )
+        header = """
+#include <stdint.h>
+#define URP_NATIVE_CONFIG_ABI_VERSION 3
+typedef struct {
+    const void *processing_configuration;
+    double receive_deemphasis_corner_hz;
+} UrpNativeStationConfig;
+typedef struct {
+    uint32_t struct_size, abi_version;
+    const char *capability_name;
+CALLBACKS
+} UrpAstDescriptor;
+""".replace("CALLBACKS", "\n".join(f"    void (*{name})(void);" for name in callbacks))
+        with tempfile.TemporaryDirectory() as work:
+            directory = Path(work)
+            include = directory / "usbradioplus_product.h"
+            executable = directory / "probe"
+            include.write_text(header.replace("VERSION 3", "VERSION 2"))
+            command = [
+                "cc",
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                f"-I{directory}",
+                str(ROOT / "tools/check_native_product_sdk.c"),
+                "-ldl",
+                "-o",
+                str(executable),
+            ]
+            result = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+            self.assertNotEqual(result.returncode, 0, "ABI 2 headers must be rejected")
+            self.assertIn("native radio configuration ABI 3 required", result.stderr)
+            include.write_text(header)
+            subprocess.run(command, capture_output=True, text=True, check=True)
+            for changed, accepted in (
+                ({}, True),
+                ({"abi_version": "2"}, False),
+                ({"struct_size": "8"}, False),
+                ({"capability_name": '"wrong"'}, False),
+                ({"capability_name": "NULL"}, False),
+                *(({name: "NULL"}, False) for name in callbacks),
+                ({"export": "missing_descriptor"}, False),
+                ({"result": "NULL"}, False),
+            ):
+                with self.subTest(changed=changed):
+                    values = {
+                        "struct_size": "sizeof(UrpAstDescriptor)",
+                        "abi_version": "1",
+                        "capability_name": '"usbradioplus.product1"',
+                        **{name: "stub" for name in callbacks},
+                    }
+                    values.update(
+                        {key: value for key, value in changed.items() if key in values}
+                    )
+                    fixture = directory / "fixture.c"
+                    fixture.write_text(
+                        '#include <stddef.h>\n#include "usbradioplus_product.h"\n'
+                        "static void stub(void) {}\n"
+                        "const UrpAstDescriptor table = {\n"
+                        + ",\n".join(
+                            f".{key} = {value}" for key, value in values.items()
+                        )
+                        + "\n};\nconst UrpAstDescriptor *"
+                        + changed.get("export", "usbradioplus_product_descriptor_v1")
+                        + "(void) { return "
+                        + changed.get("result", "&table")
+                        + "; }\n"
+                    )
+                    subprocess.run(
+                        [
+                            "cc",
+                            "-std=c11",
+                            "-shared",
+                            "-fPIC",
+                            str(fixture),
+                            "-o",
+                            str(directory / "libusbradioplus_product.so.1"),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    )
+                    result = subprocess.run(
+                        [str(executable)],
+                        env=dict(os.environ, LD_LIBRARY_PATH=work),
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode == 0, accepted, result.stderr)
 
     def test_image_supplies_site_adapter_dependencies(self):
         dockerfile = (ROOT / "containers/quality.Dockerfile").read_text()
@@ -199,7 +308,7 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
             self.assertIn(package, verification)
         for header in ("/usr/include/sensors/sensors.h", "/usr/include/gpiod.h"):
             self.assertIn(header, verification)
-        self.assertIn("0.1.0~alpha24-1.deb13", verification)
+        self.assertIn("0.1.0~alpha26-1.deb13", verification)
 
     def test_image_verification_shell(self):
         source = (ROOT / ".github/workflows/images.yml").read_text()
