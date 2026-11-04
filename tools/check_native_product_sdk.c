@@ -15,8 +15,9 @@ _Static_assert(offsetof(UrpNativeStationConfig, processing_configuration) <
                             receive_deemphasis_corner_hz),
                "native processing configuration fields required");
 
-/** Verify the native descriptor tail, then close the library without creating a
- * station. */
+/** Verify the complete SDK27 descriptor extent before reading its appended
+ * configuration, maintenance, update and observation operations. No station is
+ * created. */
 int main(void) {
   void *library = dlopen("libusbradioplus_product.so.1", RTLD_NOW | RTLD_LOCAL);
   if (!library) {
@@ -27,8 +28,8 @@ int main(void) {
   descriptor_fn describe =
       (descriptor_fn)dlsym(library, "usbradioplus_product_descriptor_v1");
   const UrpAstDescriptor *api = describe ? describe() : NULL;
-  const size_t required = offsetof(UrpAstDescriptor, link_process_f32) +
-                          sizeof(api->link_process_f32);
+  const size_t required = offsetof(UrpAstDescriptor, link_observer_destroy) +
+                          sizeof(api->link_observer_destroy);
   const int valid =
       api && api->struct_size >= required && api->abi_version == 1 &&
       api->capability_name &&
@@ -36,10 +37,17 @@ int main(void) {
       api->native_create && api->native_start && api->native_stop &&
       api->native_destroy && api->link_destroy &&
       api->native_processing_validate && api->native_link_prepare &&
-      api->link_process_f32;
+      api->link_process_f32 && api->native_configuration_resolve &&
+      api->native_configuration_visit && api->native_configuration_destroy &&
+      api->native_get_status && api->native_command &&
+      api->native_set_transmit && api->native_clear_manual &&
+      api->native_prepare_update && api->native_begin_update &&
+      api->native_accept_update && api->native_finish_update &&
+      api->native_destroy_update && api->native_status_text &&
+      api->native_processing_status_text && api->link_observer_create &&
+      api->link_observer_read && api->link_observer_destroy;
   if (!valid)
-    fputs("native radio runtime lacks the required processing operations\n",
-          stderr);
+    fputs("native radio runtime lacks the required SDK27 operations\n", stderr);
   dlclose(library);
   return valid ? 0 : 1;
 }

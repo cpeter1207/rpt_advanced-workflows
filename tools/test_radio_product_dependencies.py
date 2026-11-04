@@ -103,12 +103,13 @@ apt-get() {
 dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
 """
         for fingerprints, version, accepted, echolink in (
-            ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", False, False),
             ((FINGERPRINT,), "0.1.0~alpha27-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha28-1.deb13", True, False),
             ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", False, False),
-            (("WRONG",), "0.1.0~alpha26-1.deb13", False, False),
-            ((FINGERPRINT, "WRONG"), "0.1.0~alpha26-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", True, True),
+            (("WRONG",), "0.1.0~alpha27-1.deb13", False, False),
+            ((FINGERPRINT, "WRONG"), "0.1.0~alpha27-1.deb13", False, False),
+            ((FINGERPRINT,), "0.1.0~alpha27-1.deb13", True, True),
         ):
             with (
                 self.subTest(fingerprints=fingerprints),
@@ -205,6 +206,23 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
             "native_processing_validate",
             "native_link_prepare",
             "link_process_f32",
+            "native_configuration_resolve",
+            "native_configuration_visit",
+            "native_configuration_destroy",
+            "native_get_status",
+            "native_command",
+            "native_set_transmit",
+            "native_clear_manual",
+            "native_prepare_update",
+            "native_begin_update",
+            "native_accept_update",
+            "native_finish_update",
+            "native_destroy_update",
+            "native_status_text",
+            "native_processing_status_text",
+            "link_observer_create",
+            "link_observer_read",
+            "link_observer_destroy",
         )
         header = """
 #include <stdint.h>
@@ -241,6 +259,19 @@ CALLBACKS
             )
             self.assertNotEqual(result.returncode, 0, "ABI 2 headers must be rejected")
             self.assertIn("native radio configuration ABI 3 required", result.stderr)
+            include.write_text(
+                header[: header.index("    void (*native_configuration_resolve)")]
+                + "} UrpAstDescriptor;\n"
+            )
+            result = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+            self.assertNotEqual(
+                result.returncode,
+                0,
+                "headers without the SDK27 descriptor tail must be rejected",
+            )
+            self.assertIn("link_observer_destroy", result.stderr)
             include.write_text(header)
             subprocess.run(command, capture_output=True, text=True, check=True)
             for changed, accepted in (
@@ -252,6 +283,14 @@ CALLBACKS
                 *(({name: "NULL"}, False) for name in callbacks),
                 ({"export": "missing_descriptor"}, False),
                 ({"result": "NULL"}, False),
+                *(
+                    ({"truncated": end}, False)
+                    for end in (
+                        "8",
+                        "offsetof(UrpAstDescriptor, native_configuration_resolve)",
+                        "offsetof(UrpAstDescriptor, link_observer_destroy)",
+                    )
+                ),
             ):
                 with self.subTest(changed=changed):
                     values = {
@@ -265,7 +304,8 @@ CALLBACKS
                     )
                     fixture = directory / "fixture.c"
                     fixture.write_text(
-                        '#include <stddef.h>\n#include "usbradioplus_product.h"\n'
+                        "#define _GNU_SOURCE\n#include <stddef.h>\n#include <string.h>\n"
+                        '#include <sys/mman.h>\n#include <unistd.h>\n#include "usbradioplus_product.h"\n'
                         "static void stub(void) {}\n"
                         "const UrpAstDescriptor table = {\n"
                         + ",\n".join(
@@ -273,9 +313,20 @@ CALLBACKS
                         )
                         + "\n};\nconst UrpAstDescriptor *"
                         + changed.get("export", "usbradioplus_product_descriptor_v1")
-                        + "(void) { return "
-                        + changed.get("result", "&table")
-                        + "; }\n"
+                        + "(void) { "
+                        + (
+                            "const size_t size = " + changed["truncated"] + ";\n"
+                            "const size_t page = (size_t)sysconf(_SC_PAGESIZE);\n"
+                            "char *memory = mmap(NULL, 2 * page, PROT_READ | PROT_WRITE,\n"
+                            "MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);\n"
+                            "if (memory == MAP_FAILED || mprotect(memory + page, page, PROT_NONE)) _exit(90);\n"
+                            "UrpAstDescriptor *short_table = (void *)(memory + page - size);\n"
+                            "memcpy(short_table, &table, size);\n"
+                            "short_table->struct_size = (uint32_t)size;\nreturn short_table;"
+                            if "truncated" in changed
+                            else "return " + changed.get("result", "&table") + ";"
+                        )
+                        + " }\n"
                     )
                     subprocess.run(
                         [
@@ -298,7 +349,9 @@ CALLBACKS
                         text=True,
                         check=False,
                     )
-                    self.assertEqual(result.returncode == 0, accepted, result.stderr)
+                    self.assertEqual(
+                        result.returncode, 0 if accepted else 1, result.stderr
+                    )
 
     def test_image_supplies_site_adapter_dependencies(self):
         dockerfile = (ROOT / "containers/quality.Dockerfile").read_text()
@@ -308,7 +361,42 @@ CALLBACKS
             self.assertIn(package, verification)
         for header in ("/usr/include/sensors/sensors.h", "/usr/include/gpiod.h"):
             self.assertIn(header, verification)
-        self.assertIn("0.1.0~alpha26-1.deb13", verification)
+        self.assertIn("0.1.0~alpha27-1.deb13", verification)
+
+    def test_image_rejects_pre_alpha27_runtime_and_development_packages(self):
+        source = (ROOT / ".github/workflows/images.yml").read_text()
+        checks = re.findall(
+            r"(?m)^ *dpkg --compare-versions .*libusbradioplus-product[^\n]+", source
+        )
+        self.assertEqual(len(checks), 2)
+        script = """
+dpkg-query() {
+    case "${@: -1}" in
+        libusbradioplus-product1) printf '%s' "$TEST_RUNTIME";;
+        libusbradioplus-product-dev) printf '%s' "$TEST_DEVELOPMENT";;
+        *) return 1;;
+    esac
+}
+""" + "\n".join(checks).rstrip().removesuffix("&&")
+        for runtime, development, accepted in (
+            (26, 27, False),
+            (27, 26, False),
+            (27, 27, True),
+            (28, 28, True),
+        ):
+            with self.subTest(runtime=runtime, development=development):
+                result = subprocess.run(
+                    ["bash", "-ec", script],
+                    env=dict(
+                        os.environ,
+                        TEST_RUNTIME=f"0.1.0~alpha{runtime}-1.deb13",
+                        TEST_DEVELOPMENT=f"0.1.0~alpha{development}-1.deb13",
+                    ),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode == 0, accepted, result.stderr)
 
     def test_image_verification_shell(self):
         source = (ROOT / ".github/workflows/images.yml").read_text()
