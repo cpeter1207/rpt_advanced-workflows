@@ -155,6 +155,8 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
                     [
                         "libusbradioplus-product1",
                         "libusbradioplus-product-dev",
+                        "librptadvremote1",
+                        "librptadv-hamlib-adapter1",
                         "librptadv-rnnoise-adapter1",
                         "librnnoise0",
                     ],

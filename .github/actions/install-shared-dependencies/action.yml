@@ -59,6 +59,7 @@ runs:
         cd "$directory"
         apt-get "${options[@]}" download \
           libusbradioplus-product1 libusbradioplus-product-dev \
+          librptadvremote1 librptadv-hamlib-adapter1 \
           librptadv-rnnoise-adapter1 librnnoise0
         for package in libusbradioplus-product1_*.deb libusbradioplus-product-dev_*.deb; do
           dpkg --compare-versions "$(dpkg-deb -f "$package" Version)" ge 0.1.0~alpha28-1.deb13
