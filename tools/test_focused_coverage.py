@@ -1,4 +1,4 @@
-"""Focused coverage is diagnostic; it must not replace the complete gate."""
+"""Focused verification and its containers preserve execution boundaries."""
 
 import os
 import subprocess
@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/focused-tests.yml"
+LAUNCHER = Path(__file__).resolve().with_name("run-in-quality-container.sh")
 
 
 class FocusedCoverage(unittest.TestCase):
@@ -92,6 +93,55 @@ class FocusedCoverage(unittest.TestCase):
             'cargo test --locked --release -p "$PACKAGE" "$TEST_FILTER"',
         ]:
             self.assertTrue(required in source, required)
+
+
+class ContainerSocket(unittest.TestCase):
+    def test_host_docker_socket_requires_explicit_boolean_opt_in(self):
+        for value in (None, "0", "1", "yes"):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as work:
+                root = Path(work)
+                workspace = root / "workspace with spaces"
+                workspace.mkdir()
+                docker = root / "docker"
+                docker.write_text(
+                    '#!/bin/sh\nprintf "%s\\n" "$*" >> "$DOCKER_LOG"\n'
+                    'case "$1 $2" in\n'
+                    '  "container ls") exit 0 ;;\n'
+                    '  "image inspect") printf "%s\\n" sha256:fixture ;;\n'
+                    '  "run --rm") printf "%s\\n" "$@" > "$RUN_LOG" ;;\n'
+                    "  *) exit 81 ;;\nesac\n"
+                )
+                docker.chmod(0o755)
+                env = dict(
+                    os.environ,
+                    PATH=f"{root}{os.pathsep}{os.environ['PATH']}",
+                    RPTADV_CONTAINER_PULL="0",
+                    DOCKER_LOG=str(root / "docker.log"),
+                    RUN_LOG=str(root / "run.log"),
+                )
+                env.pop("RPTADV_CONTAINER_DOCKER_SOCKET", None)
+                if value is not None:
+                    env["RPTADV_CONTAINER_DOCKER_SOCKET"] = value
+                result = subprocess.run(
+                    ["sh", str(LAUNCHER), "quality:test", str(workspace), "true"],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if value == "yes":
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn("must be 0 or 1", result.stderr)
+                    self.assertFalse((root / "docker.log").exists())
+                    continue
+                self.assertEqual(result.returncode, 0, result.stderr)
+                args = (root / "run.log").read_text().splitlines()
+                socket = "/var/run/docker.sock:/var/run/docker.sock"
+                self.assertEqual(args.count(socket), int(value == "1"))
+                if value == "1":
+                    self.assertEqual(args[args.index(socket) - 1], "--volume")
+                self.assertIn(f"{workspace}:/workspace", args)
+                self.assertEqual(args[-2:], ["quality:test", "true"])
 
 
 if __name__ == "__main__":
