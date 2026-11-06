@@ -1,6 +1,9 @@
 name: Verified source release
 on:
   workflow_call:
+    secrets:
+      APT_INDEX_DISPATCH_TOKEN:
+        required: false
     inputs:
       code_ref:
         description: Immutable tagged production revision to release.
@@ -94,6 +97,8 @@ jobs:
   publish:
     needs: [verified-images, packages]
     runs-on: ubuntu-24.04
+    env:
+      INDEX_TOKEN: ${{ secrets.APT_INDEX_DISPATCH_TOKEN }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -126,3 +131,13 @@ jobs:
           if [[ "$TAG" == *-* ]]; then options+=(--prerelease); fi
           gh release create "$TAG" --verify-tag --generate-notes \
             "${options[@]}" build/*.tar.gz build/*.deb build/SHA256SUMS
+      - name: Refresh the signed Debian package index
+        if: ${{ env.INDEX_TOKEN != '' }}
+        uses: cpeter1207/USBRadioPlus-Workflows/actions/dispatch-package-index@main
+        with:
+          package-repository: cpeter1207/rpt_advanced
+          package-tag: ${{ inputs.tag }}
+          token: ${{ secrets.APT_INDEX_DISPATCH_TOKEN }}
+      - name: Report a missing package-index token
+        if: ${{ env.INDEX_TOKEN == '' }}
+        run: echo '::notice::APT_INDEX_DISPATCH_TOKEN was not supplied; release assets are published, but the signed package index was not refreshed.'
