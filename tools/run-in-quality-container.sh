@@ -18,6 +18,14 @@ project_label="org.rptadvanced.test.project=$project"
 scope_label="org.rptadvanced.test.scope=$scope"
 name="$project-test-$scope-$$"
 pull_image=${RPTADV_CONTAINER_PULL:-1}
+pass_docker_socket=${RPTADV_CONTAINER_DOCKER_SOCKET:-0}
+case $pass_docker_socket in
+	0|1) ;;
+	*)
+		printf '%s\n' 'RPTADV_CONTAINER_DOCKER_SOCKET must be 0 or 1' >&2
+		exit 2
+		;;
+esac
 cid_dir=$(mktemp -d "${TMPDIR:-/tmp}/rpt-advanced-container.XXXXXX")
 cidfile="$cid_dir/container-id"
 
@@ -81,6 +89,10 @@ case $(uname -s) in
 		;;
 esac
 
+set -- "$run_image" "$@"
+if [ "$pass_docker_socket" = '1' ]; then
+	set -- --volume /var/run/docker.sock:/var/run/docker.sock "$@"
+fi
 docker run --rm --cidfile "$docker_cidfile" --name "$name" --label rpt_advanced.test=true \
 	--label "$project_label" --label "$scope_label" \
-	--volume "$host_root:/workspace" --workdir /workspace "$run_image" "$@"
+	--volume "$host_root:/workspace" --workdir /workspace "$@"
