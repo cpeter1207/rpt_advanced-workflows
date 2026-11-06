@@ -10,14 +10,16 @@
 
 _Static_assert(URP_NATIVE_CONFIG_ABI_VERSION == 3,
                "native radio configuration ABI 3 required");
+_Static_assert(URP_AST_DIRECT_CALLBACKS_ABI_VERSION == 5,
+               "native direct callback ABI 5 required");
 _Static_assert(offsetof(UrpNativeStationConfig, processing_configuration) <
                    offsetof(UrpNativeStationConfig,
                             receive_deemphasis_corner_hz),
                "native processing configuration fields required");
 
-/** Verify the complete SDK27 descriptor extent before reading its appended
- * configuration, maintenance, update and observation operations. No station is
- * created. */
+/** Verify the complete SDK28 descriptor before reading configuration, control,
+ * observation, remote operations and asynchronous activation readiness. No
+ * station is created. */
 int main(void) {
   void *library = dlopen("libusbradioplus_product.so.1", RTLD_NOW | RTLD_LOCAL);
   if (!library) {
@@ -28,8 +30,9 @@ int main(void) {
   descriptor_fn describe =
       (descriptor_fn)dlsym(library, "usbradioplus_product_descriptor_v1");
   const UrpAstDescriptor *api = describe ? describe() : NULL;
-  const size_t required = offsetof(UrpAstDescriptor, link_observer_destroy) +
-                          sizeof(api->link_observer_destroy);
+  const size_t required =
+      offsetof(UrpAstDescriptor, channel_activation_status) +
+      sizeof(api->channel_activation_status);
   const int valid =
       api && api->struct_size >= required && api->abi_version == 1 &&
       api->capability_name &&
@@ -45,9 +48,14 @@ int main(void) {
       api->native_accept_update && api->native_finish_update &&
       api->native_destroy_update && api->native_status_text &&
       api->native_processing_status_text && api->link_observer_create &&
-      api->link_observer_read && api->link_observer_destroy;
+      api->link_observer_read && api->link_observer_destroy &&
+      api->native_service && api->native_remote_submit &&
+      api->channel_remote_submit && api->remote_source && api->remote_take &&
+      api->remote_destroy && api->native_quiesce && api->channel_quiesce &&
+      api->native_configuration_remote_options &&
+      api->native_activation_status && api->channel_activation_status;
   if (!valid)
-    fputs("native radio runtime lacks the required SDK27 operations\n", stderr);
+    fputs("native radio runtime lacks the required SDK28 operations\n", stderr);
   dlclose(library);
   return valid ? 0 : 1;
 }

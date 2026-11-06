@@ -104,12 +104,12 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
 """
         for fingerprints, version, accepted, echolink in (
             ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha27-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha27-1.deb13", False, False),
             ((FINGERPRINT,), "0.1.0~alpha28-1.deb13", True, False),
             ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", False, False),
-            (("WRONG",), "0.1.0~alpha27-1.deb13", False, False),
-            ((FINGERPRINT, "WRONG"), "0.1.0~alpha27-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha27-1.deb13", True, True),
+            (("WRONG",), "0.1.0~alpha28-1.deb13", False, False),
+            ((FINGERPRINT, "WRONG"), "0.1.0~alpha28-1.deb13", False, False),
+            ((FINGERPRINT,), "0.1.0~alpha28-1.deb13", True, True),
         ):
             with (
                 self.subTest(fingerprints=fingerprints),
@@ -155,6 +155,8 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
                     [
                         "libusbradioplus-product1",
                         "libusbradioplus-product-dev",
+                        "librptadvremote1",
+                        "librptadv-hamlib-adapter1",
                         "librptadv-rnnoise-adapter1",
                         "librnnoise0",
                     ],
@@ -223,10 +225,22 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
             "link_observer_create",
             "link_observer_read",
             "link_observer_destroy",
+            "native_service",
+            "native_remote_submit",
+            "channel_remote_submit",
+            "remote_source",
+            "remote_take",
+            "remote_destroy",
+            "native_quiesce",
+            "channel_quiesce",
+            "native_configuration_remote_options",
+            "native_activation_status",
+            "channel_activation_status",
         )
         header = """
 #include <stdint.h>
 #define URP_NATIVE_CONFIG_ABI_VERSION 3
+#define URP_AST_DIRECT_CALLBACKS_ABI_VERSION 5
 typedef struct {
     const void *processing_configuration;
     double receive_deemphasis_corner_hz;
@@ -234,9 +248,12 @@ typedef struct {
 typedef struct {
     uint32_t struct_size, abi_version;
     const char *capability_name;
-CALLBACKS
+CALLBACK_FIELDS
 } UrpAstDescriptor;
-""".replace("CALLBACKS", "\n".join(f"    void (*{name})(void);" for name in callbacks))
+""".replace(
+            "CALLBACK_FIELDS",
+            "\n".join(f"    void (*{name})(void);" for name in callbacks),
+        )
         with tempfile.TemporaryDirectory() as work:
             directory = Path(work)
             include = directory / "usbradioplus_product.h"
@@ -260,6 +277,16 @@ CALLBACKS
             self.assertNotEqual(result.returncode, 0, "ABI 2 headers must be rejected")
             self.assertIn("native radio configuration ABI 3 required", result.stderr)
             include.write_text(
+                header.replace("CALLBACKS_ABI_VERSION 5", "CALLBACKS_ABI_VERSION 4")
+            )
+            result = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+            self.assertNotEqual(
+                result.returncode, 0, "callback ABI 4 headers must be rejected"
+            )
+            self.assertIn("native direct callback ABI 5 required", result.stderr)
+            include.write_text(
                 header[: header.index("    void (*native_configuration_resolve)")]
                 + "} UrpAstDescriptor;\n"
             )
@@ -269,9 +296,9 @@ CALLBACKS
             self.assertNotEqual(
                 result.returncode,
                 0,
-                "headers without the SDK27 descriptor tail must be rejected",
+                "headers without the remote readiness descriptor tail must be rejected",
             )
-            self.assertIn("link_observer_destroy", result.stderr)
+            self.assertIn("channel_activation_status", result.stderr)
             include.write_text(header)
             subprocess.run(command, capture_output=True, text=True, check=True)
             for changed, accepted in (
@@ -289,6 +316,7 @@ CALLBACKS
                         "8",
                         "offsetof(UrpAstDescriptor, native_configuration_resolve)",
                         "offsetof(UrpAstDescriptor, link_observer_destroy)",
+                        "offsetof(UrpAstDescriptor, channel_activation_status)",
                     )
                 ),
             ):
@@ -361,9 +389,9 @@ CALLBACKS
             self.assertIn(package, verification)
         for header in ("/usr/include/sensors/sensors.h", "/usr/include/gpiod.h"):
             self.assertIn(header, verification)
-        self.assertIn("0.1.0~alpha27-1.deb13", verification)
+        self.assertIn("0.1.0~alpha28-1.deb13", verification)
 
-    def test_image_rejects_pre_alpha27_runtime_and_development_packages(self):
+    def test_image_rejects_pre_alpha28_runtime_and_development_packages(self):
         source = (ROOT / ".github/workflows/images.yml").read_text()
         checks = re.findall(
             r"(?m)^ *dpkg --compare-versions .*libusbradioplus-product[^\n]+", source
@@ -379,10 +407,10 @@ dpkg-query() {
 }
 """ + "\n".join(checks).rstrip().removesuffix("&&")
         for runtime, development, accepted in (
-            (26, 27, False),
-            (27, 26, False),
-            (27, 27, True),
+            (27, 28, False),
+            (28, 27, False),
             (28, 28, True),
+            (29, 29, True),
         ):
             with self.subTest(runtime=runtime, development=development):
                 result = subprocess.run(
