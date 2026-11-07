@@ -86,10 +86,10 @@ jobs:
             test -f /usr/include/rptadv_portaudio_alsa_adapter/rptadv_portaudio_alsa_adapter.h &&
             test -f /usr/include/rptadv_gpio_adapter/rptadv_gpio_adapter.h &&
             test -f /usr/include/rptadv_ffmpeg_adapter/rptadv_ffmpeg_adapter.h &&
-            dpkg-query -W librptadvradio4 librptadvradio-dev &&
+            dpkg-query -W librptadvradio5 librptadvradio-dev &&
             pkg-config --exists rptadvradio &&
-            test "$(pkg-config --variable=abi_version rptadvradio)" = 4 &&
-            test -f "$(pkg-config --variable=libdir rptadvradio)/librptadvradio.so.4" &&
+            test "$(pkg-config --variable=abi_version rptadvradio)" = 5 &&
+            test -f "$(pkg-config --variable=libdir rptadvradio)/librptadvradio.so.5" &&
             dpkg-query -W librptadv-gpio-adapter1 librptadv-gpio-adapter-dev &&
             pkg-config --exists rptadv_gpio_adapter &&
             test -f "$(pkg-config --variable=libdir rptadv_gpio_adapter)/librptadv_gpio_adapter.so.1" &&
@@ -102,8 +102,8 @@ jobs:
               test -f "$(pkg-config --variable=libdir "rptadv${component}")/librptadv${component}.so.$abi" || exit 1
             done &&
             dpkg-query -W libusbradioplus-product1 libusbradioplus-product-dev &&
-            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product1)" ge 0.1.0~alpha28-1.deb13 &&
-            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product-dev)" ge 0.1.0~alpha28-1.deb13 &&
+            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product1)" ge 0.1.0~alpha32-1.deb13 &&
+            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product-dev)" ge 0.1.0~alpha32-1.deb13 &&
             pkg-config --exists usbradioplus_product &&
             test "$(pkg-config --variable=abi_version usbradioplus_product)" = 1 &&
             test -f /usr/include/usbradioplus_product.h &&
