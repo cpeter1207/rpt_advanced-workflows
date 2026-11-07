@@ -239,7 +239,7 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
         )
         header = """
 #include <stdint.h>
-#define URP_NATIVE_CONFIG_ABI_VERSION 3
+#define URP_NATIVE_CONFIG_ABI_VERSION 4
 #define URP_AST_DIRECT_CALLBACKS_ABI_VERSION 6
 typedef struct {
     const void *processing_configuration;
@@ -258,7 +258,7 @@ CALLBACK_FIELDS
             directory = Path(work)
             include = directory / "usbradioplus_product.h"
             executable = directory / "probe"
-            include.write_text(header.replace("VERSION 3", "VERSION 2"))
+            include.write_text(header.replace("VERSION 4", "VERSION 3"))
             command = [
                 "cc",
                 "-std=c11",
@@ -274,8 +274,8 @@ CALLBACK_FIELDS
             result = subprocess.run(
                 command, capture_output=True, text=True, check=False
             )
-            self.assertNotEqual(result.returncode, 0, "ABI 2 headers must be rejected")
-            self.assertIn("native radio configuration ABI 3 required", result.stderr)
+            self.assertNotEqual(result.returncode, 0, "ABI 3 headers must be rejected")
+            self.assertIn("native radio configuration ABI 4 required", result.stderr)
             include.write_text(
                 header.replace("CALLBACKS_ABI_VERSION 6", "CALLBACKS_ABI_VERSION 5")
             )

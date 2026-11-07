@@ -8,8 +8,8 @@
 #include <string.h>
 #include <usbradioplus_product.h>
 
-_Static_assert(URP_NATIVE_CONFIG_ABI_VERSION == 3,
-               "native radio configuration ABI 3 required");
+_Static_assert(URP_NATIVE_CONFIG_ABI_VERSION == 4,
+               "native radio configuration ABI 4 required");
 _Static_assert(URP_AST_DIRECT_CALLBACKS_ABI_VERSION == 6,
                "native direct callback ABI 6 required");
 _Static_assert(offsetof(UrpNativeStationConfig, processing_configuration) <
