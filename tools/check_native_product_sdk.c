@@ -17,7 +17,7 @@ _Static_assert(offsetof(UrpNativeStationConfig, processing_configuration) <
                             receive_deemphasis_corner_hz),
                "native processing configuration fields required");
 
-/** Verify the complete SDK31 descriptor before reading configuration, control,
+/** Verify the complete SDK32 descriptor before reading configuration, control,
  * observation, remote operations and asynchronous activation readiness. No
  * station is created. */
 int main(void) {
@@ -55,7 +55,7 @@ int main(void) {
       api->native_configuration_remote_options &&
       api->native_activation_status && api->channel_activation_status;
   if (!valid)
-    fputs("native radio runtime lacks the required SDK31 operations\n", stderr);
+    fputs("native radio runtime lacks the required SDK32 operations\n", stderr);
   dlclose(library);
   return valid ? 0 : 1;
 }
