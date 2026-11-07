@@ -104,12 +104,12 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
 """
         for fingerprints, version, accepted, echolink in (
             ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha27-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha28-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha30-1.deb13", False, False),
+            ((FINGERPRINT,), "0.1.0~alpha31-1.deb13", True, False),
             ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", False, False),
-            (("WRONG",), "0.1.0~alpha28-1.deb13", False, False),
-            ((FINGERPRINT, "WRONG"), "0.1.0~alpha28-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha28-1.deb13", True, True),
+            (("WRONG",), "0.1.0~alpha31-1.deb13", False, False),
+            ((FINGERPRINT, "WRONG"), "0.1.0~alpha31-1.deb13", False, False),
+            ((FINGERPRINT,), "0.1.0~alpha31-1.deb13", True, True),
         ):
             with (
                 self.subTest(fingerprints=fingerprints),
@@ -240,7 +240,7 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
         header = """
 #include <stdint.h>
 #define URP_NATIVE_CONFIG_ABI_VERSION 3
-#define URP_AST_DIRECT_CALLBACKS_ABI_VERSION 5
+#define URP_AST_DIRECT_CALLBACKS_ABI_VERSION 6
 typedef struct {
     const void *processing_configuration;
     double receive_deemphasis_corner_hz;
@@ -277,15 +277,15 @@ CALLBACK_FIELDS
             self.assertNotEqual(result.returncode, 0, "ABI 2 headers must be rejected")
             self.assertIn("native radio configuration ABI 3 required", result.stderr)
             include.write_text(
-                header.replace("CALLBACKS_ABI_VERSION 5", "CALLBACKS_ABI_VERSION 4")
+                header.replace("CALLBACKS_ABI_VERSION 6", "CALLBACKS_ABI_VERSION 5")
             )
             result = subprocess.run(
                 command, capture_output=True, text=True, check=False
             )
             self.assertNotEqual(
-                result.returncode, 0, "callback ABI 4 headers must be rejected"
+                result.returncode, 0, "callback ABI 5 headers must be rejected"
             )
-            self.assertIn("native direct callback ABI 5 required", result.stderr)
+            self.assertIn("native direct callback ABI 6 required", result.stderr)
             include.write_text(
                 header[: header.index("    void (*native_configuration_resolve)")]
                 + "} UrpAstDescriptor;\n"
@@ -389,9 +389,9 @@ CALLBACK_FIELDS
             self.assertIn(package, verification)
         for header in ("/usr/include/sensors/sensors.h", "/usr/include/gpiod.h"):
             self.assertIn(header, verification)
-        self.assertIn("0.1.0~alpha28-1.deb13", verification)
+        self.assertIn("0.1.0~alpha31-1.deb13", verification)
 
-    def test_image_rejects_pre_alpha28_runtime_and_development_packages(self):
+    def test_image_rejects_pre_alpha31_runtime_and_development_packages(self):
         source = (ROOT / ".github/workflows/images.yml").read_text()
         checks = re.findall(
             r"(?m)^ *dpkg --compare-versions .*libusbradioplus-product[^\n]+", source
@@ -407,10 +407,10 @@ dpkg-query() {
 }
 """ + "\n".join(checks).rstrip().removesuffix("&&")
         for runtime, development, accepted in (
-            (27, 28, False),
-            (28, 27, False),
-            (28, 28, True),
-            (29, 29, True),
+            (30, 31, False),
+            (31, 30, False),
+            (31, 31, True),
+            (32, 32, True),
         ):
             with self.subTest(runtime=runtime, development=development):
                 result = subprocess.run(
@@ -515,8 +515,8 @@ pkg-config() {
             for repository, tag, runtime, development in (
                 (
                     "librptadvradio",
-                    "v0.1.0-alpha.8",
-                    "librptadvradio4",
+                    "v0.1.0-alpha.10",
+                    "librptadvradio5",
                     "librptadvradio-dev",
                 ),
                 (
@@ -569,7 +569,7 @@ pkg-config() {
     def test_image_checks_new_owner_and_provider_sonames(self):
         source = (ROOT / ".github/workflows/images.yml").read_text()
         for package, pc_name, soname in (
-            ("librptadvradio4", "rptadvradio", "librptadvradio.so.4"),
+            ("librptadvradio5", "rptadvradio", "librptadvradio.so.5"),
             (
                 "librptadv-gpio-adapter1",
                 "rptadv_gpio_adapter",
@@ -580,7 +580,7 @@ pkg-config() {
                 self.assertIn(package, source)
                 self.assertIn(f"pkg-config --exists {pc_name}", source)
                 self.assertIn(soname, source)
-        self.assertIn('pkg-config --variable=abi_version rptadvradio)" = 4', source)
+        self.assertIn('pkg-config --variable=abi_version rptadvradio)" = 5', source)
 
         components = (
             "squelch",

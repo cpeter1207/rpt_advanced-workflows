@@ -18,8 +18,8 @@ images on native amd64/arm64 runners. It provides the current Rust toolchain,
 FFmpeg, libclang, and SpeexDSP runtime and development files. It also installs
 pinned ring, samplerate, PortAudio/ALSA, and FFmpeg development packages from
 the production dependency manifest, plus released radio-core, GPIO, IAX2, and
-nine functional-provider packages. Radio uses ABI 4
-from v0.1.0-alpha.8; squelch and CTCSS use ABI 2 from v0.1.0-alpha.2, while
+nine functional-provider packages. Radio uses ABI 5
+from v0.1.0-alpha.10; squelch and CTCSS use ABI 2 from v0.1.0-alpha.2, while
 DCS, signaling, tone, Morse, DTMF, template, and schedule remain ABI 1. The
 radio product runtime and development
 packages (`libusbradioplus-product1` and `libusbradioplus-product-dev`) and their
@@ -28,7 +28,7 @@ APT repository. Downloads use an isolated source/list directory and the
 established signing-key fingerprint; they do not change the runner's APT sources
 or install the USBRadioPlus Asterisk integration. The image verifies the product
 header, native request ABI 3, pkg-config ABI 1, and `libusbradioplus_product.so.1`.
-It requires USBRadioPlus alpha27 or newer and checks the installed runtime's
+It requires USBRadioPlus alpha31 or newer and checks the installed runtime's
 complete configuration, maintenance, update, observation and processing
 descriptor tail without opening hardware. Owner/provider pkg-config metadata
 and SONAMEs are also checked. The `latest` manifest is
