@@ -25,6 +25,10 @@ jobs:
         with:
           repository: cpeter1207/rpt_advanced
           ref: ${{ inputs.code_ref }}
+      - name: Install ABI-matched shared dependencies
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
+        with:
+          install: 'true'
       - name: Generate documentation for the main revision
         run: |
           make docs

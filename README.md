@@ -71,7 +71,9 @@ GitHub prereleases. Creating or editing workflow code does not create a release;
 the production repository must push a version tag through its thin caller.
 
 After a validated change reaches `main`, the thin documentation caller rebuilds
-and publishes that revision's Doxygen and Rustdoc sites. Documentation
+and publishes that revision's Doxygen and Rustdoc sites. It installs the released
+shared dependencies selected by that checkout before generating documentation,
+so a quality image's older SDK cannot supply the build headers. Documentation
 validation remains part of the pull-request gate; publication is intentionally
 separate from the fast push preflight and releases.
 
