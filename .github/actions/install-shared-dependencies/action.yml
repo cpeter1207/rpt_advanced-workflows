@@ -48,6 +48,7 @@ runs:
           "$temporary/key.gpg" "$repository" > "$temporary/sources.list"
         mkdir "$temporary/lists"
         options=(-o "Dir::Etc::sourcelist=$temporary/sources.list"
+          -o Acquire::http::No-Cache=true -o Acquire::https::No-Cache=true
           -o Dir::Etc::sourceparts=- -o "Dir::State::lists=$temporary/lists")
         apt-get "${options[@]}" update
         if [[ -f "${MANIFEST_PATH:-}" ]] &&
