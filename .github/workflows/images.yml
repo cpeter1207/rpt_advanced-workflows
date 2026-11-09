@@ -102,8 +102,8 @@ jobs:
               test -f "$(pkg-config --variable=libdir "rptadv${component}")/librptadv${component}.so.$abi" || exit 1
             done &&
             dpkg-query -W libusbradioplus-product1 libusbradioplus-product-dev &&
-            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product1)" ge 0.1.0~alpha32-1.deb13 &&
-            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product-dev)" ge 0.1.0~alpha32-1.deb13 &&
+            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product1)" ge 0.1.0~alpha33-1.deb13 &&
+            dpkg --compare-versions "$(dpkg-query -W -f="\${Version}" libusbradioplus-product-dev)" ge 0.1.0~alpha33-1.deb13 &&
             pkg-config --exists usbradioplus_product &&
             test "$(pkg-config --variable=abi_version usbradioplus_product)" = 1 &&
             test -f /usr/include/usbradioplus_product.h &&

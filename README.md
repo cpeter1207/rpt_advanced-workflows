@@ -28,7 +28,7 @@ APT repository. Downloads use an isolated source/list directory and the
 established signing-key fingerprint; they do not change the runner's APT sources
 or install the USBRadioPlus Asterisk integration. The image verifies the product
 header, native request ABI 4, pkg-config ABI 1, and `libusbradioplus_product.so.1`.
-It requires USBRadioPlus alpha32 or newer and checks the installed runtime's
+It requires USBRadioPlus alpha33 or newer and checks the installed runtime's
 complete configuration, maintenance, update, observation and processing
 descriptor tail without opening hardware. Owner/provider pkg-config metadata
 and SONAMEs are also checked. The `latest` manifest is
