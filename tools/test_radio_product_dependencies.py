@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify dependency downloads without external network or installation."""
 
+import hashlib
 import json
 import os
 import re
@@ -11,6 +12,7 @@ import tempfile
 import textwrap
 import threading
 import unittest
+from email.utils import formatdate
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -19,6 +21,94 @@ FINGERPRINT = "A0D5A79E0F5C45E9E63679950951502BAC795E55"
 
 
 class RadioProductDependencies(unittest.TestCase):
+    def test_apt_revalidates_metadata_without_disabling_index_hashes(self):
+        source = (
+            ROOT / ".github/actions/install-shared-dependencies/action.yml"
+        ).read_text()
+        options = (
+            "options=("
+            + re.search(r"(?m)^        options=\((.*?)\)\n", source, re.DOTALL).group(1)
+            + ")"
+        )
+        stale = b"Package: cache-fixture\nVersion: 1\nArchitecture: all\nDescription: old\n\n"
+        current = stale.replace(b"Version: 1", b"Version: 22")
+
+        class CachedRepository(BaseHTTPRequestHandler):
+            def do_GET(self):
+                control = self.headers.get("Cache-Control", "")
+                self.server.requests.append((self.path, control))
+                if self.path == "/dists/stable/Release":
+                    advertised = current if "no-cache" in control else stale
+                    body = (
+                        "Origin: cache-fixture\nSuite: stable\nCodename: stable\n"
+                        f"Date: {formatdate(usegmt=True)}\n"
+                        "Architectures: amd64\nComponents: main\nSHA256:\n"
+                        f" {hashlib.sha256(advertised).hexdigest()} {len(advertised)} "
+                        "main/binary-amd64/Packages\n"
+                    ).encode()
+                elif self.path == "/dists/stable/main/binary-amd64/Packages":
+                    body = current
+                else:
+                    self.send_error(404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, _format, *args):
+                pass
+
+        unconfigured = re.sub(r"-o Acquire::https?::No-Cache=true", "", options)
+        for label, configuration, accepted in (
+            ("configured", options, True),
+            ("without-revalidation", unconfigured, False),
+        ):
+            with (
+                self.subTest(configuration=label),
+                tempfile.TemporaryDirectory() as work,
+                HTTPServer(("127.0.0.1", 0), CachedRepository) as server,
+            ):
+                server.requests = []
+                Path(work).chmod(0o755)
+                Path(work, "lists").mkdir()
+                # Trust only this local transport fixture; production keeps its pinned key.
+                Path(work, "sources.list").write_text(
+                    f"deb [trusted=yes] http://127.0.0.1:{server.server_port} stable main\n"
+                )
+                thread = threading.Thread(target=server.serve_forever)
+                thread.start()
+                try:
+                    result = subprocess.run(
+                        [
+                            "bash",
+                            "-c",
+                            "set -euo pipefail\n"
+                            + configuration
+                            + '\napt-get "${options[@]}" -o APT::Architecture=amd64 '
+                            "-o Acquire::Languages=none update",
+                        ],
+                        env=dict(os.environ, temporary=work),
+                        text=True,
+                        capture_output=True,
+                        timeout=30,
+                        check=False,
+                    )
+                finally:
+                    server.shutdown()
+                    thread.join()
+                self.assertEqual(result.returncode == 0, accepted, result.stderr)
+                if accepted:
+                    release_requests = [
+                        control
+                        for path, control in server.requests
+                        if path.endswith("/Release")
+                    ]
+                    self.assertEqual(len(release_requests), 1)
+                    self.assertIn("no-cache", release_requests[0])
+                else:
+                    self.assertRegex(result.stderr, "unexpected size|Hash Sum mismatch")
+
     def test_dependency_downloads_retry_connection_resets_with_bounded_attempts(self):
         source = (
             ROOT / ".github/actions/install-shared-dependencies/action.yml"

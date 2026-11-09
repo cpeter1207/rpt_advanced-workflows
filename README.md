@@ -35,6 +35,12 @@ and SONAMEs are also checked. The `latest` manifest is
 updated only after both native builds pass. These are quality images, not
 clean-install or installed-release images.
 
+Dependency APT requests revalidation of cached HTTP/HTTPS metadata to avoid
+pairing a stale cached release with a newer index during a package-site update.
+The isolated source/list directory, pinned signing key, index hashes and SDK version floor
+remain enforced. A native local-repository test reproduces the stale-index
+failure and verifies revalidation without disabling hash checks.
+
 When a dependency manifest selects EchoLink, the same signed repository supplies
 the released jitter runtime in `dependencies/packages/bootstrap/`. Candidate
 build containers install that prerequisite before building EchoLink. The returned
