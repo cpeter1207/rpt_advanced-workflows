@@ -85,7 +85,9 @@ class RadioProductDependencies(unittest.TestCase):
                             "-c",
                             "set -euo pipefail\n"
                             + configuration
-                            + '\napt-get "${options[@]}" -o APT::Architecture=amd64 '
+                            + "\napt-get -o Acquire::http::No-Cache=false "
+                            '-o Acquire::https::No-Cache=false "${options[@]}" '
+                            "-o APT::Architecture=amd64 "
                             "-o Acquire::Languages=none update",
                         ],
                         env=dict(os.environ, temporary=work),
@@ -97,7 +99,11 @@ class RadioProductDependencies(unittest.TestCase):
                 finally:
                     server.shutdown()
                     thread.join()
-                self.assertEqual(result.returncode == 0, accepted, result.stderr)
+                self.assertEqual(
+                    result.returncode == 0,
+                    accepted,
+                    f"{result.stderr}\nrequests={server.requests!r}",
+                )
                 if accepted:
                     release_requests = [
                         control
