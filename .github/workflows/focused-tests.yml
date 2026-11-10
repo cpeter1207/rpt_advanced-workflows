@@ -73,7 +73,7 @@ jobs:
             rustdoc) RUSTDOCFLAGS='-D warnings' cargo doc --locked -p "$PACKAGE" --no-deps ;;
             coverage)
               # Diagnostic report for the selected tests, not full-gate acceptance.
-              export RUSTUP_TOOLCHAIN=nightly-2025-02-20
+              export RUSTUP_TOOLCHAIN=nightly-2025-06-24
               export CARGO_TARGET_DIR="$PWD/target/focused-coverage"
               export CARGO_LLVM_COV_TARGET_DIR="$CARGO_TARGET_DIR"
               eval "$(cargo llvm-cov show-env --branch --export-prefix)"

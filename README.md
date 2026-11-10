@@ -35,6 +35,16 @@ and SONAMEs are also checked. The `latest` manifest is
 updated only after both native builds pass. These are quality images, not
 clean-install or installed-release images.
 
+Normal RPT compilation uses pinned Rust 1.88.0; branch coverage uses
+`nightly-2025-06-24`. These LLVM backends compile the SIP stack's optimized
+atomic trait-object slot, which fails instruction selection with the previous
+compilers. Each native image builds a reduced regression with both compilers
+at optimization level 3, including branch instrumentation on nightly. Genuine
+Debian Rust/Cargo packages from signed `trixie-backports` satisfy RPT's 1.88
+build-dependency floor. Only compiler and standard-library packages receive the
+backports preference; normal compilation still uses the pinned Rustup toolchain.
+Other shared providers keep their own compiler requirements.
+
 Dependency APT requests revalidation of cached HTTP/HTTPS metadata to avoid
 pairing a stale cached release with a newer index during a package-site update.
 The isolated source/list directory, pinned signing key, index hashes and SDK version floor
