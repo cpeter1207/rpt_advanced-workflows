@@ -72,7 +72,8 @@ jobs:
             pkg-config --exists speexdsp &&
             test -f /usr/include/speex/speex_jitter.h &&
             test -f "$(pkg-config --variable=libdir speexdsp)/libspeexdsp.so.1" &&
-            asterisk -V && ffmpeg -version && cargo --version && rustc --version &&
+            asterisk -V && ffmpeg -version && (sipp -v || test "$?" -eq 99) &&
+            cargo --version && rustc --version &&
             rustfmt --version && cargo +nightly-2025-06-24 fmt --version &&
             cargo clippy --version && rustdoc --version &&
             printf "%s\n" "$EXPECTED_PACKAGES" | while IFS= read -r package; do dpkg-query -W "$package"; done &&

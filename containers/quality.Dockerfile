@@ -29,7 +29,7 @@ RUN printf '%s\n' \
     apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       rustc/trixie-backports cargo/trixie-backports \
       curl ffmpeg jq libclang-dev libspeexdsp1 libspeexdsp-dev \
-      libsensors5 libsensors-dev libgpiod3 libgpiod-dev python3-pip /tmp/dependencies/*.deb && \
+      libsensors5 libsensors-dev libgpiod3 libgpiod-dev python3-pip sip-tester /tmp/dependencies/*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/dependencies
 RUN python3 -m pip install --break-system-packages --no-cache-dir --disable-pip-version-check \
       --no-deps "ruff==${RUFF_VERSION}" && \
