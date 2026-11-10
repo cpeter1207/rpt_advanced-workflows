@@ -87,7 +87,7 @@ class FocusedCoverage(unittest.TestCase):
     def test_coverage_uses_one_instrumented_generation_and_selected_tests(self):
         source = WORKFLOW.read_text()
         for required in [
-            "export RUSTUP_TOOLCHAIN=nightly-2025-02-20",
+            "export RUSTUP_TOOLCHAIN=nightly-2025-06-24",
             'export CARGO_LLVM_COV_TARGET_DIR="$CARGO_TARGET_DIR"',
             "llvm-cov show-env --branch --export-prefix",
             'cargo test --locked --release -p "$PACKAGE" "$TEST_FILTER"',

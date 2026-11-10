@@ -1,7 +1,7 @@
 ARG DEBIAN_VERSION=13
 ARG RUSTUP_INIT_VERSION=1.28.2
-ARG RUST_STABLE=1.85.0
-ARG RUST_NIGHTLY=nightly-2025-02-20
+ARG RUST_STABLE=1.88.0
+ARG RUST_NIGHTLY=nightly-2025-06-24
 ARG RUFF_VERSION=0.16.8
 FROM ghcr.io/cpeter1207/usbradioplus-quality-debian${DEBIAN_VERSION}:latest
 ARG TARGETARCH
@@ -17,14 +17,24 @@ ENV CARGO_HOME=/opt/cargo
 ENV PATH="/opt/cargo/bin:/opt/usbradioplus-quality/bin:${PATH}"
 COPY --from=dependencies . /tmp/dependencies/
 COPY tools/check_native_product_sdk.c /usr/local/libexec/rpt-advanced/check_native_product_sdk.c
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+COPY tools/compiler_atomic.rs /usr/local/libexec/rpt-advanced/compiler_atomic.rs
+RUN printf '%s\n' \
+      'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian trixie-backports main' \
+      > /etc/apt/sources.list.d/rpt-compiler-backports.list && \
+    printf '%s\n' \
+      'Package: rustc cargo libstd-rust-* rust-llvm' \
+      'Pin: release n=trixie-backports' 'Pin-Priority: 990' '' \
+      'Package: *' 'Pin: release n=trixie-backports' 'Pin-Priority: 100' \
+      > /etc/apt/preferences.d/rpt-compiler-backports && \
+    apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      rustc/trixie-backports cargo/trixie-backports \
       curl ffmpeg jq libclang-dev libspeexdsp1 libspeexdsp-dev \
       libsensors5 libsensors-dev libgpiod3 libgpiod-dev python3-pip /tmp/dependencies/*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/dependencies
 RUN python3 -m pip install --break-system-packages --no-cache-dir --disable-pip-version-check \
       --no-deps "ruff==${RUFF_VERSION}" && \
     ruff --version | grep -F "${RUFF_VERSION}"
-RUN case "${TARGETARCH}" in \
+RUN set -eu; case "${TARGETARCH}" in \
       amd64) rustup_host=x86_64-unknown-linux-gnu; rustup_sha=20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c ;; \
       arm64) rustup_host=aarch64-unknown-linux-gnu; rustup_sha=e3853c5a252fca15252d07cb23a1bdd9377a8c6f3efa01531109281ae47f841c ;; \
       *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
@@ -44,5 +54,13 @@ RUN case "${TARGETARCH}" in \
     rustc_version="$(rustc --version)"; case "$rustc_version" in *"${RUST_STABLE}"*) ;; *) exit 1 ;; esac; \
     rustfmt --version; \
     cargo +"${RUST_NIGHTLY}" fmt --version; \
-    coverage_version="$(cargo +"${RUST_NIGHTLY}" llvm-cov --version)"; case "$coverage_version" in *"${CARGO_LLVM_COV_VERSION}"*) ;; *) exit 1 ;; esac
+    coverage_version="$(cargo +"${RUST_NIGHTLY}" llvm-cov --version)"; case "$coverage_version" in *"${CARGO_LLVM_COV_VERSION}"*) ;; *) exit 1 ;; esac; \
+    dpkg --compare-versions "$(dpkg-query -W -f='${Version}' rustc)" ge 1.88; \
+    dpkg --compare-versions "$(dpkg-query -W -f='${Version}' cargo)" ge 1.88; \
+    rustc --edition=2024 --crate-type lib -C opt-level=3 \
+      /usr/local/libexec/rpt-advanced/compiler_atomic.rs --emit=obj -o /tmp/compiler-atomic.o; \
+    rustc +"${RUST_NIGHTLY}" --edition=2024 --crate-type lib -C opt-level=3 \
+      -C instrument-coverage -Z coverage-options=branch \
+      /usr/local/libexec/rpt-advanced/compiler_atomic.rs --emit=obj -o /tmp/compiler-atomic-coverage.o; \
+    rm -f /tmp/compiler-atomic.o /tmp/compiler-atomic-coverage.o
 WORKDIR /work
