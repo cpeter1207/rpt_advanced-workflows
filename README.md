@@ -15,8 +15,11 @@ production builds. Workflow validation runs independently on pull requests.
 
 The manually dispatched **Publish quality images** workflow builds Debian 13
 images on native amd64/arm64 runners. It provides the current Rust toolchain,
-FFmpeg, libclang, and SpeexDSP runtime and development files. It also installs
-pinned ring, samplerate, PortAudio/ALSA, and FFmpeg development packages from
+FFmpeg, libclang, and SpeexDSP runtime and development files. Debian's
+`sip-tester` supplies independent SIPp protocol scenarios; both native image smoke
+tests execute its version command, which conventionally exits 99. This is a test
+prerequisite. The image also installs pinned ring, samplerate, PortAudio/ALSA,
+and FFmpeg development packages from
 the production dependency manifest, plus released radio-core, GPIO, IAX2, and
 nine functional-provider packages. Radio uses ABI 5
 from v0.1.0-alpha.10; squelch and CTCSS use ABI 2 from v0.1.0-alpha.2, while
