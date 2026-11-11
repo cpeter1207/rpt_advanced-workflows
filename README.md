@@ -154,3 +154,66 @@ RPTADV_CONTAINER_PROFILE=constrained tools/run-in-quality-container.sh \
   ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest \
   /path/to/rpt_advanced make rust-check
 ```
+
+## Automated performance and memory reports
+
+Every full controller pull-request gate now attaches `resources-platform-verify-debian13-{amd64,arm64}`,
+`resources-packaging-debian13-{amd64,arm64}`, and
+`resources-coverage-debian13-amd64`, with a readable GitHub job summary.
+Each artifact contains `report.md`, versioned `report.json`, the original
+`command.log`, and any test lifecycle snapshots. Failed commands still produce
+reports and keep their original failure status. The suite is unchanged: reports
+observe the existing commands rather than running a second benchmark.
+
+Start with the slowest Rust suites and largest sampled process contributors.
+Compiler/build memory is separate from the test process; fixture waits are not
+audio processing time. The controller's existing 2000-peer admission regression
+optionally records baseline, admitted, stopped and fixture-dropped observations.
+Compare RSS with glibc arena-in-use, free-retained and mmap totals to distinguish
+retained allocator storage from a live-allocation lead. These are aggregate
+observations, not allocation call stacks or proof of a leak. The admission
+fixture keeps all 2000 sessions and 48 kHz buffers, but does not run 2000 active
+audio streams. The test-only recorder never trims memory or changes allocator
+settings. Serial tests avoid unrelated tests contaminating lifecycle comparisons.
+
+Existing detailed audio measurements are reused, not replaced:
+`rpt_advanced/tests/peer_egress_load.py` emits real loopback egress throughput,
+callback/queue latency and loss JSON; USBRadioPlus's
+`tests/test_rms_agc_ladspa.c` reports CPU cost for voiced audio and silence.
+The loopback experiment remains opt-in. To measure it locally, put this
+repository's reporter in the mounted development workspace and wrap the existing
+command, for example inside a maintained labeled quality container:
+
+```sh
+python3 workflows/tools/resource_report.py --label loopback-1000-release \
+  --output .work/resource-reports/loopback-1000-release -- \
+  python3 tests/peer_egress_load.py --peers 1000 --seconds 120 \
+  --output .work/loopback-1000.json
+```
+
+Use an empty output directory for each run; stale reports are rejected.
+Respect the constrained launcher and coordinate local runs on shared hosts.
+Reporting itself starts no per-peer threads and samples process statistics every
+250 ms. No timing or memory thresholds replace functional assertions.
+
+Compare only matching workload/source/dependency/build/architecture identities,
+CPU and memory limits, allocator settings and cache conditions. The report stores
+Cargo/dependency hashes, dependency manifest contents, installed package versions,
+compiler versions, CPU affinity/quota and memory/swap/pid limits. Local launcher
+runs record the freshly pulled immutable image digest. Hosted container jobs
+record the image tag and package inventory; when an immutable digest is not
+available, the report says so. Dependency source pins may be unpublished
+candidates; neither the reporter nor its package inventory asserts release status.
+
+Kernel `wait4` high-water RSS is the largest child/descendant process, not total
+concurrent usage. Sampled process-tree RSS can miss short peaks and double-counts
+shared pages. Lifecycle RSS includes fixture storage and process history; glibc
+counters have tcache/other-allocator limits. Coverage and optimized/debug runs
+are separate workloads. Missing observations are unavailable, never estimated
+as zero, and abrupt OOM/SIGKILL of the reporter can prevent final artifacts.
+
+Malformed or incomplete lifecycle snapshots are retained as raw artifacts and
+listed as diagnostics, without hiding the command status or other measurements.
+Log streaming uses bounded chunks; suite timing is parsed without loading the
+whole log. glibc arena/mmap totals describe allocator address space, not resident
+pages, and can exceed RSS or the container memory limit.

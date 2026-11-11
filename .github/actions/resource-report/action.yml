@@ -1,0 +1,29 @@
+name: Observe quality resources
+description: Run the unchanged command and retain performance and memory artifacts.
+inputs:
+  label:
+    description: Unique workload and architecture name.
+    required: true
+  command:
+    description: Existing trusted workflow command to observe.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Measure the existing workload
+      shell: bash
+      env:
+        REPORT_LABEL: ${{ inputs.label }}
+        REPORT_COMMAND: ${{ inputs.command }}
+        RPTADV_QUALITY_IMAGE: ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest
+      run: |
+        python3 "$GITHUB_ACTION_PATH/../../../tools/resource_report.py" \
+          --label "$REPORT_LABEL" --output "$GITHUB_WORKSPACE/.work/resource-reports/$REPORT_LABEL" \
+          -- bash -e -c "$REPORT_COMMAND"
+    - uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: resources-${{ inputs.label }}
+        path: ${{ github.workspace }}/.work/resource-reports/${{ inputs.label }}
+        include-hidden-files: true
+        if-no-files-found: error

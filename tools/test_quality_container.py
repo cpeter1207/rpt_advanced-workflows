@@ -82,6 +82,7 @@ if args and args[0] == "run":
             self.assertEqual(args[args.index(flag) + 1], value)
         for item in ["CARGO_BUILD_JOBS=1", "RUST_TEST_THREADS=1", "OMP_NUM_THREADS=1"]:
             self.assertIn(item, args)
+        self.assertIn("RPTADV_QUALITY_IMAGE=example:latest@sha256:" + "a" * 64, args)
         image_index = next(
             i for i, a in enumerate(args) if a.startswith("example:latest@sha256:")
         )
