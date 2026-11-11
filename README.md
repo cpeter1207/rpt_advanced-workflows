@@ -211,3 +211,9 @@ shared pages. Lifecycle RSS includes fixture storage and process history; glibc
 counters have tcache/other-allocator limits. Coverage and optimized/debug runs
 are separate workloads. Missing observations are unavailable, never estimated
 as zero, and abrupt OOM/SIGKILL of the reporter can prevent final artifacts.
+
+Malformed or incomplete lifecycle snapshots are retained as raw artifacts and
+listed as diagnostics, without hiding the command status or other measurements.
+Log streaming uses bounded chunks; suite timing is parsed without loading the
+whole log. glibc arena/mmap totals describe allocator address space, not resident
+pages, and can exceed RSS or the container memory limit.

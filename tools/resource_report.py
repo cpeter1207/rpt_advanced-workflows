@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 import platform
 import re
@@ -208,9 +209,12 @@ def observe(command, output):
                     for metric in ("rss_bytes", "cpu_seconds", "threads"):
                         previous[metric] = max(previous[metric], item[metric])
                 pid, status, usage = os.wait4(child.pid, os.WNOHANG)
-                sys.stdout.buffer.write(tail.read())
+                sys.stdout.buffer.write(tail.read(65536))
                 sys.stdout.buffer.flush()
                 if pid:
+                    for block in iter(lambda: tail.read(65536), b""):
+                        sys.stdout.buffer.write(block)
+                    sys.stdout.buffer.flush()
                     child.returncode = os.waitstatus_to_exitcode(status)
                     break
                 time.sleep(INTERVAL)
@@ -256,7 +260,7 @@ def test_suites(log):
     """Reuse Cargo's existing suite timing; counts are not audio throughput."""
     suites = []
     name = "unidentified suite"
-    for line in log.splitlines():
+    for line in log:
         if "Running " in line or "Doc-tests " in line:
             name = line.strip()
         match = re.search(
@@ -280,6 +284,57 @@ def test_suites(log):
                 }
             )
     return sorted(suites, key=lambda item: item["seconds"], reverse=True)
+
+
+def lifecycle_snapshots(output):
+    """Retain raw snapshots and report corrupt/incomplete observations separately."""
+    snapshots, diagnostics = [], []
+    for path in sorted((output / "snapshots").glob("*.json")):
+        try:
+            with path.open("rb") as stream:
+                raw = stream.read(65537)
+            if len(raw) > 65536:
+                raise ValueError("snapshot exceeds 64 KiB")
+            item = json.loads(raw)
+            if not isinstance(item, dict) or item.get("schema_version") != 1:
+                raise ValueError("expected a version 1 snapshot object")
+            for key in ("workload", "phase"):
+                if not isinstance(item.get(key), str) or not item[key]:
+                    raise ValueError(f"missing or invalid {key}")
+            for key in ("pid", "connected_peers"):
+                if type(item.get(key)) is not int or item[key] < 0:
+                    raise ValueError(f"missing or invalid {key}")
+            elapsed = item.get("elapsed_seconds")
+            if (
+                type(elapsed) not in (int, float)
+                or not math.isfinite(elapsed)
+                or elapsed < 0
+            ):
+                raise ValueError("missing or invalid elapsed_seconds")
+            if "rss_bytes" not in item:
+                raise ValueError("missing rss_bytes")
+            metrics = [item["rss_bytes"]]
+            heap = item.get("glibc")
+            if heap is not None:
+                if not isinstance(heap, dict):
+                    raise ValueError("invalid glibc object")
+                metrics.extend(
+                    heap.get(key)
+                    for key in (
+                        "arena_in_use_bytes",
+                        "arena_free_retained_bytes",
+                        "mmap_bytes",
+                    )
+                )
+            if any(
+                value is not None and (type(value) is not int or value < 0)
+                for value in metrics
+            ):
+                raise ValueError("invalid memory byte count")
+            snapshots.append(item)
+        except (OSError, ValueError, OverflowError) as error:
+            diagnostics.append({"file": f"snapshots/{path.name}", "error": str(error)})
+    return snapshots, diagnostics
 
 
 def markdown(report):
@@ -326,6 +381,12 @@ def markdown(report):
         lines.append(
             "- Unavailable: this command/source emitted no lifecycle snapshots."
         )
+    if report["diagnostics"]:
+        lines.extend(["", "### Snapshot diagnostics"])
+        lines.extend(
+            f"- {item['file']}: {item['error']}; raw artifact retained."
+            for item in report["diagnostics"]
+        )
     lines.extend(
         ["", "### Interpretation", *[f"- {note}" for note in report["caveats"]], ""]
     )
@@ -350,9 +411,9 @@ def main():
         )
     metadata = identity()
     code, measured, sampled = observe(command, output)
-    snapshots = [
-        json.loads(path.read_text()) for path in (output / "snapshots").glob("*.json")
-    ]
+    snapshots, diagnostics = lifecycle_snapshots(output)
+    with (output / "command.log").open(errors="replace") as log:
+        suites = test_suites(log)
     report = {
         "schema_version": 1,
         "label": args.label,
@@ -362,7 +423,8 @@ def main():
         "measured": measured,
         "sampled": sampled,
         "estimated": {},
-        "rust_suites": test_suites(read(output / "command.log") or ""),
+        "rust_suites": suites,
+        "diagnostics": diagnostics,
         "lifecycle": sorted(
             snapshots,
             key=lambda item: (item["workload"], item["pid"], item["elapsed_seconds"]),
@@ -371,7 +433,7 @@ def main():
             "Observations, not timing thresholds. All requested tests/workloads and their failure status are preserved.",
             "Elapsed and CPU include builds, fixtures and subprocesses for the named command. Compare identical commands, source/lockfile/dependency identities, build modes, architectures, limits and allocator settings.",
             "Observed elapsed time includes exit polling (250 ms plus scheduler delay); use suite/benchmark timings for short operations. wait4 peak RSS is the largest process high-water mark, not concurrent tree usage. Sampled RSS sums shared pages and can miss short peaks/processes; it is not PSS. Reporter overhead and host contention affect timing.",
-            "glibc arena in-use/free/mmap are measured allocator aggregates, not allocation stack attribution. Tcache and other allocators limit live-object inference. Retained RSS alone is not a leak.",
+            "glibc arena in-use/free/mmap are measured allocator aggregates, not allocation stack attribution. Arena/mmap totals describe allocator address space, not resident pages, and can exceed the RSS/container limit. Tcache and other allocators limit live-object inference. Retained RSS alone is not a leak.",
             "Lifecycle snapshots include fixtures and other tests in the same process; use serial tests. A process lifetime high-water mark may predate the observed test. No allocator trim or production setting is applied.",
             "The unchanged 2000-peer admission regression measures retained sessions at 48 kHz, not 2000 active streams. Existing tests/peer_egress_load.py separately reports real loopback throughput/latency/loss; shared USBRadioPlus AGC tests already report voiced/silence CPU cost.",
             "Coverage instrumentation, debug versus release builds and cold versus warm caches are different workloads. No synthetic capacity estimates are substituted for missing measurements.",

@@ -105,6 +105,7 @@ class ResourceReport(unittest.TestCase):
     def test_lifecycle_snapshots_are_preserved_in_readable_summary(self):
         with tempfile.TemporaryDirectory() as work:
             snapshot = {
+                "schema_version": 1,
                 "workload": "admission-2000",
                 "phase": "fixtures-dropped",
                 "pid": 1,
@@ -144,6 +145,41 @@ class ResourceReport(unittest.TestCase):
             summary = (Path(work) / "report.md").read_text()
             self.assertIn("fixtures-dropped", summary)
             self.assertIn("free retained", summary)
+
+    def test_bad_snapshots_keep_failed_command_status_and_raw_artifacts(self):
+        with tempfile.TemporaryDirectory() as work:
+            script = (
+                "import os,pathlib,sys; p=pathlib.Path(os.environ['RPTADV_RESOURCE_SNAPSHOT_DIR']); "
+                "p.mkdir(); (p/'truncated.json').write_text('{'); "
+                "(p/'missing.json').write_text('{}'); "
+                "(p/'wrong-type.json').write_text('[]'); sys.exit(37)"
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(REPORTER),
+                    "--label",
+                    "bad-snapshots",
+                    "--output",
+                    work,
+                    "--",
+                    sys.executable,
+                    "-c",
+                    script,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 37, result.stderr)
+            report = json.loads((Path(work) / "report.json").read_text())
+            self.assertEqual(report["exit_code"], 37)
+            self.assertEqual(report["lifecycle"], [])
+            self.assertEqual(len(report["diagnostics"]), 3)
+            self.assertEqual((Path(work) / "snapshots/truncated.json").read_text(), "{")
+            self.assertIn(
+                "Snapshot diagnostics", (Path(work) / "report.md").read_text()
+            )
 
     def test_suite_reuses_workloads_and_uploads_even_on_failure(self):
         root = REPORTER.parents[1]
