@@ -12,6 +12,8 @@ ARG RUFF_VERSION
 ARG CARGO_LLVM_COV_VERSION=0.6.21
 LABEL org.opencontainers.image.source="https://github.com/cpeter1207/rpt_advanced-workflows"
 LABEL org.opencontainers.image.description="rpt_advanced ASL3 quality test environment"
+# Conservative defaults also apply when these images run outside the local launcher.
+ENV CARGO_BUILD_JOBS=1 RUST_TEST_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 ENV RUSTUP_HOME=/opt/rustup
 ENV CARGO_HOME=/opt/cargo
 ENV PATH="/opt/cargo/bin:/opt/usbradioplus-quality/bin:${PATH}"

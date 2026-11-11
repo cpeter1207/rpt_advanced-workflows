@@ -63,6 +63,7 @@ jobs:
           expected_packages=$(jq -r '.[] | .packages[]' production/.github/dependencies.json)
           test -n "$expected_packages"
           docker run --rm --label rpt_advanced.test=true -e ARCH -e "EXPECTED_PACKAGES=$expected_packages" "$IMAGE" sh -c '
+            test "$CARGO_BUILD_JOBS:$RUST_TEST_THREADS:$OMP_NUM_THREADS:$OPENBLAS_NUM_THREADS" = "1:1:1:1" &&
             test "$(dpkg --print-architecture)" = "$ARCH" &&
             test -f /usr/include/asterisk.h && test -f /usr/lib/llvm-*/lib/libclang.so &&
             dpkg-query -W libspeexdsp1 libspeexdsp-dev &&

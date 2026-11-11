@@ -121,3 +121,36 @@ tools/run-in-quality-container.sh \
   ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest \
   /path/to/rpt_advanced make rust-coverage
 ```
+
+### Constrained shared hosts
+
+Set `RPTADV_CONTAINER_PROFILE=constrained` for local runs on a small shared host.
+The launcher enforces one CPU, 1536 MiB RAM, no container swap, 256 tasks,
+single Cargo build/test/OpenMP/BLAS concurrency, serial Make defaults, one active
+constrained run per host account, and a 20-minute command deadline (TERM, then
+KILL after 15 seconds). It still pulls
+latest, records the digest and cleans only its own labeled containers. Passing
+the host Docker socket or disabling the fresh pull is rejected in this profile.
+Quality and clean/installed test images default Cargo builds, Rust tests, OpenMP
+and BLAS to one worker. Docker resource bounds still require the constrained
+launcher profile; image metadata alone cannot impose cgroup limits. The default
+launcher profile and required hosted quality checks remain unchanged.
+
+Only the constrained launcher sets glibc's `MALLOC_MMAP_THRESHOLD_=131072`
+and `MALLOC_TRIM_THRESHOLD_=131072`. Fixed 128 KiB thresholds let freed large
+allocations return to the OS rather than retaining a large high-water mark
+between sequential stress tests. These are allocator reclamation settings, not
+a reduction in test workload or a replacement for the memory limit. They are
+not image-wide defaults and do not change production services. Non-glibc
+allocators may ignore these settings.
+
+Resource exhaustion or timeout is a failed run, never a skipped or passed test.
+Do not increase these bounds on a shared production host without checking its
+headroom. Some large stress tests may require a dedicated larger runner. This
+profile does not replace the full native amd64/arm64 gate or coverage.
+
+```sh
+RPTADV_CONTAINER_PROFILE=constrained tools/run-in-quality-container.sh \
+  ghcr.io/cpeter1207/rpt-advanced-quality-debian13:latest \
+  /path/to/rpt_advanced make rust-check
+```
