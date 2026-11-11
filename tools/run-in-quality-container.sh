@@ -103,6 +103,9 @@ else
 	exit 2
 fi
 
+# Worktree git metadata may live outside the bind mount; retain host-side source identity.
+source_revision=$(git -C "$root" rev-parse HEAD 2>/dev/null || true)
+source_tracked_dirty=$(git -C "$root" status --porcelain --untracked-files=no 2>/dev/null || true)
 host_root=$root
 docker_cidfile=$cidfile
 case $(uname -s) in
@@ -126,6 +129,8 @@ fi
 if [ "$pass_docker_socket" = '1' ]; then
 	set -- --volume /var/run/docker.sock:/var/run/docker.sock "$@"
 fi
-docker run --rm --cidfile "$docker_cidfile" --name "$name" --label rpt_advanced.test=true \
+docker run --rm --env "RPTADV_QUALITY_IMAGE=$run_image" \
+	--env "RPTADV_SOURCE_REVISION=$source_revision" \
+	--env "RPTADV_SOURCE_TRACKED_DIRTY=$source_tracked_dirty" --cidfile "$docker_cidfile" --name "$name" --label rpt_advanced.test=true \
 	--label "$project_label" --label "$scope_label" \
 	--volume "$host_root:/workspace" --workdir /workspace "$@"

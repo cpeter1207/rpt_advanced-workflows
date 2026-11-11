@@ -20,4 +20,6 @@ jobs:
         run: python3 tools/test_focused_coverage.py
       - name: Verify constrained quality launcher
         run: python3 tools/test_quality_container.py
+      - name: Verify performance and memory reporting
+        run: python3 tools/test_resource_report.py
       - uses: raven-actions/actionlint@v2

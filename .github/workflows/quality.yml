@@ -51,10 +51,16 @@ jobs:
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: test "$(dpkg --print-architecture)" = "$EXPECTED_ARCH"
-      - name: Build, test, package, and stage installation
-        run: |
-          make platform-verify
-          DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b
+      - name: Build, test, and stage installation with resource observations
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/resource-report@main
+        with:
+          label: platform-verify-debian13-${{ matrix.arch }}
+          command: make platform-verify
+      - name: Package with resource observations
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/resource-report@main
+        with:
+          label: packaging-debian13-${{ matrix.arch }}
+          command: env DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b
   coverage:
     needs: independent
     runs-on: ubuntu-24.04
@@ -68,8 +74,11 @@ jobs:
         uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
         with:
           install: 'true'
-      - name: Collect amd64 coverage
-        run: make coverage
+      - name: Collect amd64 coverage with resource observations
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/resource-report@main
+        with:
+          label: coverage-debian13-amd64
+          command: make coverage
       - uses: actions/upload-artifact@v7
         if: always()
         with:
