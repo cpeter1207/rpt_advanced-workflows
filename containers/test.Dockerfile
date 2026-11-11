@@ -2,6 +2,8 @@
 ARG DEBIAN_VERSION=13
 FROM debian:${DEBIAN_VERSION} AS clean
 ARG DEBIAN_VERSION
+# Conservative defaults also apply when these images run outside the local launcher.
+ENV CARGO_BUILD_JOBS=1 RUST_TEST_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 # Associate published images with the production repository so its workflow
 # token owns the corresponding GHCR packages.
 LABEL org.opencontainers.image.source="https://github.com/cpeter1207/rpt_advanced"

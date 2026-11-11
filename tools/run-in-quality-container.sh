@@ -26,6 +26,30 @@ case $pass_docker_socket in
 		exit 2
 		;;
 esac
+profile=${RPTADV_CONTAINER_PROFILE:-default}
+case $profile in
+	default) ;;
+	constrained)
+		if [ "$pass_docker_socket" != '0' ] || [ "$pull_image" != '1' ]; then
+			printf '%s\n' 'constrained profile requires a fresh pull and no Docker socket' >&2
+			exit 2
+		fi
+		;;
+	*)
+		printf '%s\n' 'RPTADV_CONTAINER_PROFILE must be default or constrained' >&2
+		exit 2
+		;;
+esac
+if [ "$profile" = constrained ]; then
+	# Serialize constrained runs by this account across all project workspaces.
+	lock_dir="$HOME/.cache/rpt-advanced"
+	mkdir -p "$lock_dir"
+	exec 9>"$lock_dir/constrained.lock"
+	if ! flock -n 9; then
+		printf '%s\n' 'another constrained quality run is active for this account' >&2
+		exit 1
+	fi
+fi
 cid_dir=$(mktemp -d "${TMPDIR:-/tmp}/rpt-advanced-container.XXXXXX")
 cidfile="$cid_dir/container-id"
 
@@ -89,7 +113,16 @@ case $(uname -s) in
 		;;
 esac
 
-set -- "$run_image" "$@"
+if [ "$profile" = constrained ]; then
+	# Keep compilation and tests serial; cap the whole container independently.
+	set -- --cpus 1 --memory 1536m --memory-swap 1536m --pids-limit 256 \
+		--env CARGO_BUILD_JOBS=1 --env RUST_TEST_THREADS=1 --env OMP_NUM_THREADS=1 \
+		--env OPENBLAS_NUM_THREADS=1 --env MAKEFLAGS=-j1 \
+		--env MALLOC_MMAP_THRESHOLD_=131072 --env MALLOC_TRIM_THRESHOLD_=131072 \
+		"$run_image" timeout --signal=TERM --kill-after=15s 20m "$@"
+else
+	set -- "$run_image" "$@"
+fi
 if [ "$pass_docker_socket" = '1' ]; then
 	set -- --volume /var/run/docker.sock:/var/run/docker.sock "$@"
 fi

@@ -18,4 +18,6 @@ jobs:
         run: python3 tools/test_radio_product_dependencies.py
       - name: Verify focused coverage runner
         run: python3 tools/test_focused_coverage.py
+      - name: Verify constrained quality launcher
+        run: python3 tools/test_quality_container.py
       - uses: raven-actions/actionlint@v2
