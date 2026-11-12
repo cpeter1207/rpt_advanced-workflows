@@ -217,3 +217,9 @@ listed as diagnostics, without hiding the command status or other measurements.
 Log streaming uses bounded chunks; suite timing is parsed without loading the
 whole log. glibc arena/mmap totals describe allocator address space, not resident
 pages, and can exceed RSS or the container memory limit.
+
+Installed test images stage exactly the eight named application/adapter packages
+and one numeric-SONAME product runtime package (including product2 and product3).
+Missing or duplicate artifacts fail before staging; development, debug and
+unrelated packages are excluded. The source-build stage remains independently
+usable by dependency smoke tests.

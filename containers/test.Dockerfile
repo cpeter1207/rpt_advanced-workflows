@@ -27,16 +27,14 @@ WORKDIR /source
 COPY --from=production . ./
 RUN DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b && make build/chan_rpt_fixture.so
 
+FROM build AS runtime-packages
+COPY tools/stage_test_image_packages.py /tmp/stage_test_image_packages.py
+RUN python3 /tmp/stage_test_image_packages.py / /test-packages
+
 FROM clean AS installed
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ffmpeg python3 && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app-rpt-advanced_*.deb /rpt-advanced_*.deb \
-  /librptadv-product2_*.deb \
-  /librptadv-file-adapter1_*.deb /librptadv-speech-adapter1_*.deb \
-  /librptadv-control-asterisk-adapter1_*.deb \
-  /librptadv-control-standalone-adapter1_*.deb \
-  /librptadv-resolver-adapter1_*.deb \
-  /librptadv-jitter-adapter1_*.deb /tmp/packages/
+COPY --from=runtime-packages /test-packages/ /tmp/packages/
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y --no-install-recommends /tmp/packages/*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/packages
 RUN ldconfig

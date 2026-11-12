@@ -8,18 +8,23 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+from stage_test_image_packages import PACKAGES
+
 
 def main():
     """Verify release uploads and installed-image package staging."""
     installed_image = Path("containers/test.Dockerfile").read_text()
-    assert "app-rpt-advanced_*.deb" in installed_image, (
+    assert "app-rpt-advanced" in PACKAGES, (
         "installed image must stage the Asterisk adapter package"
     )
-    assert "librptadv-control-standalone-adapter1_*.deb" in installed_image, (
+    assert "librptadv-control-standalone-adapter1" in PACKAGES, (
         "installed image must stage the standalone control adapter dependency"
     )
-    assert "librptadv-resolver-adapter1_*.deb" in installed_image, (
+    assert "librptadv-resolver-adapter1" in PACKAGES, (
         "installed image must stage the standalone resolver dependency"
+    )
+    assert (
+        "COPY --from=runtime-packages /test-packages/ /tmp/packages/" in installed_image
     )
     workflow = Path(".github/workflows/release.yml").read_text()
     package_job = workflow.split("  packages:\n", 1)[1].split("  publish:\n", 1)[0]
