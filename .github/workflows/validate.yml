@@ -22,4 +22,6 @@ jobs:
         run: python3 tools/test_quality_container.py
       - name: Verify performance and memory reporting
         run: python3 tools/test_resource_report.py
+      - name: Verify installed image package selection
+        run: python3 tools/test_stage_test_image_packages.py
       - uses: raven-actions/actionlint@v2
