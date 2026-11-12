@@ -63,7 +63,7 @@ runs:
           librptadvremote1 librptadv-hamlib-adapter1 \
           librptadv-rnnoise-adapter1 librnnoise0
         for package in libusbradioplus-product1_*.deb libusbradioplus-product-dev_*.deb; do
-          dpkg --compare-versions "$(dpkg-deb -f "$package" Version)" ge 0.1.0~alpha33-1.deb13
+          dpkg --compare-versions "$(dpkg-deb -f "$package" Version)" ge 0.1.0~alpha35-1.deb13
         done
     - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main
       with:

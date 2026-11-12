@@ -202,11 +202,14 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
             ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", False, False),
             ((FINGERPRINT,), "0.1.0~alpha31-1.deb13", False, False),
             ((FINGERPRINT,), "0.1.0~alpha32-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha33-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha33-1.deb13", False, False),
+            ((FINGERPRINT,), "0.1.0~alpha34-1.deb13", False, False),
+            ((FINGERPRINT,), "0.1.0~alpha35-1.deb13", True, False),
+            ((FINGERPRINT,), "0.1.0~alpha36-1.deb13", True, False),
             ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", False, False),
-            (("WRONG",), "0.1.0~alpha33-1.deb13", False, False),
-            ((FINGERPRINT, "WRONG"), "0.1.0~alpha33-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha33-1.deb13", True, True),
+            (("WRONG",), "0.1.0~alpha35-1.deb13", False, False),
+            ((FINGERPRINT, "WRONG"), "0.1.0~alpha35-1.deb13", False, False),
+            ((FINGERPRINT,), "0.1.0~alpha35-1.deb13", True, True),
         ):
             with (
                 self.subTest(fingerprints=fingerprints),
@@ -486,9 +489,9 @@ CALLBACK_FIELDS
             self.assertIn(package, verification)
         for header in ("/usr/include/sensors/sensors.h", "/usr/include/gpiod.h"):
             self.assertIn(header, verification)
-        self.assertIn("0.1.0~alpha33-1.deb13", verification)
+        self.assertIn("0.1.0~alpha35-1.deb13", verification)
 
-    def test_image_rejects_pre_alpha33_runtime_and_development_packages(self):
+    def test_image_rejects_pre_alpha35_runtime_and_development_packages(self):
         source = (ROOT / ".github/workflows/images.yml").read_text()
         checks = re.findall(
             r"(?m)^ *dpkg --compare-versions .*libusbradioplus-product[^\n]+", source
@@ -504,11 +507,13 @@ dpkg-query() {
 }
 """ + "\n".join(checks).rstrip().removesuffix("&&")
         for runtime, development, accepted in (
-            (32, 33, False),
-            (33, 32, False),
-            (32, 32, False),
-            (33, 33, True),
-            (34, 34, True),
+            (33, 35, False),
+            (35, 33, False),
+            (34, 35, False),
+            (35, 34, False),
+            (34, 34, False),
+            (35, 35, True),
+            (36, 36, True),
         ):
             with self.subTest(runtime=runtime, development=development):
                 result = subprocess.run(
