@@ -23,6 +23,8 @@ jobs:
         uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
         with:
           install: 'true'
+      - name: Provision pinned private Sofia for CI only
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/provision-private-sofia@main
       - name: Check formatting, analysis, and documentation concurrently
         run: make -j3 quality
   platforms:
@@ -47,6 +49,8 @@ jobs:
         uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
         with:
           install: 'true'
+      - name: Provision pinned private Sofia for CI only
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/provision-private-sofia@main
       - name: Verify target architecture
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
@@ -74,6 +78,8 @@ jobs:
         uses: cpeter1207/rpt_advanced-workflows/.github/actions/install-shared-dependencies@main
         with:
           install: 'true'
+      - name: Provision pinned private Sofia for CI only
+        uses: cpeter1207/rpt_advanced-workflows/.github/actions/provision-private-sofia@main
       - name: Collect amd64 coverage with resource observations
         uses: cpeter1207/rpt_advanced-workflows/.github/actions/resource-report@main
         with:
