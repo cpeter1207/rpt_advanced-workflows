@@ -1,0 +1,16 @@
+name: Provision private Sofia for CI
+description: Build the exact unmodified dynamic dependency without publishing an image or package.
+runs:
+  using: composite
+  steps:
+    - name: Prepare pinned Sofia build prerequisites
+      shell: bash
+      run: |
+        set -euo pipefail
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends autoconf automake libtool libssl-dev pkg-config
+    - name: Build and verify private Sofia
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: timeout --signal=TERM --kill-after=15s 15m python3 "$ACTION_PATH/../../../tools/provision_private_sofia.py"

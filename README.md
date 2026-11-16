@@ -223,3 +223,13 @@ and one numeric-SONAME product runtime package (including product2 and product3)
 Missing or duplicate artifacts fail before staging; development, debug and
 unrelated packages are excluded. The source-build stage remains independently
 usable by dependency smoke tests.
+
+## Private SIP CI prerequisite
+
+Preflight and quality jobs provision unmodified Sofia-SIP 1.13.19 in an ephemeral
+`RUNNER_TEMP` prefix. The checksum-pinned external build is serial, dynamic-only,
+and keeps upstream default features (including OpenSSL). Both Make and Cargo
+receive the same verified prefix. No Sofia source, DSO, image or combined package
+is published by this action. This is not license or distribution clearance.
+The controller's real Debian development-package dependency and final package
+qualification remain required; private provisioning does not bypass them.

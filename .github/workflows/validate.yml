@@ -24,4 +24,6 @@ jobs:
         run: python3 tools/test_resource_report.py
       - name: Verify installed image package selection
         run: python3 tools/test_stage_test_image_packages.py
+      - name: Verify private Sofia provisioning
+        run: python3 tools/test_private_sofia.py
       - uses: raven-actions/actionlint@v2
