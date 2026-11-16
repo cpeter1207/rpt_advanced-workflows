@@ -233,3 +233,8 @@ receive the same verified prefix. No Sofia source, DSO, image or combined packag
 is published by this action. This is not license or distribution clearance.
 The controller's real Debian development-package dependency and final package
 qualification remain required; private provisioning does not bypass them.
+
+Pinned candidate radio builds receive the released RNNoise adapter development
+package and its runtime pair through the existing signed-APT bootstrap directory.
+This satisfies declared build dependencies before candidate packaging; it does
+not replace dependency checks or publish new packages.

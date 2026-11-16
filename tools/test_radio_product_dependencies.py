@@ -192,9 +192,14 @@ curl() { touch "${@: -1}"; }
 gpg() { printf '%s\\n' "$TEST_KEY_LIST"; }
 apt-get() {
     printf '%s\\n' "$*" >> "$APT_LOG"
-    if [[ "$*" == *" download librptadv-jitter-adapter1" ]]; then
-        printf fixture > librptadv-jitter-adapter1_test_amd64.deb
-    fi
+    local downloading=false package
+    for package in "$@"; do
+        if [[ "$downloading" == true ]]; then
+            printf fixture > "${package}_test_amd64.deb"
+        elif [[ "$package" == download ]]; then
+            downloading=true
+        fi
+    done
 }
 dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
 """
@@ -258,9 +263,20 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
                         "librptadvremote1",
                         "librptadv-hamlib-adapter1",
                         "librptadv-rnnoise-adapter1",
+                        "librptadv-rnnoise-adapter-dev",
                         "librnnoise0",
                     ],
                 )
+                packages = Path(work) / "dependencies/packages"
+                for package in (
+                    "librptadv-rnnoise-adapter1",
+                    "librptadv-rnnoise-adapter-dev",
+                    "librnnoise0",
+                ):
+                    filename = f"{package}_test_amd64.deb"
+                    self.assertEqual(
+                        (packages / "bootstrap" / filename).read_bytes(), b"fixture"
+                    )
                 if echolink:
                     packages = Path(work) / "dependencies/packages"
                     runtime = "librptadv-jitter-adapter1_test_amd64.deb"
