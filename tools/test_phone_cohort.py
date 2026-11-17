@@ -87,6 +87,11 @@ class CohortTests(unittest.TestCase):
             )
             sha = git("rev-parse", "HEAD")
             cohort.verify_source(root, sha)
+            with (
+                mock.patch.object(cohort, "__file__", str(root / "tools/helper.py")),
+                mock.patch.dict(os.environ, {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"}),
+            ):
+                self.assertEqual(cohort.workflow_commit(), sha)
             with self.assertRaises(ValueError):
                 cohort.verify_source(root, "0" * 40)
             source.write_text("changed")

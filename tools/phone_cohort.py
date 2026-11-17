@@ -100,6 +100,13 @@ def command(args, cwd=None):
     return subprocess.check_output(args, cwd=cwd, text=True).strip()
 
 
+def workflow_commit():
+    """Read the Actions checkout SHA despite its different container owner."""
+    root = Path(__file__).resolve().parents[1]
+    # Trust only this checkout for this read; never persist or wildcard trust.
+    return command(["git", "-c", f"safe.directory={root}", "rev-parse", "HEAD"], root)
+
+
 def checkout(manifest, root):
     """Fetch only fixed public repositories and verify their exact source pins."""
     root.mkdir(parents=True, exist_ok=True)
@@ -177,7 +184,7 @@ def receipt(manifest, root, runtime, arch, image):
         "image": image,
         "sources": manifest,
         "supplemental_headers": header_receipt(runtime.parent / "include"),
-        "workflow_commit": command(["git", "rev-parse", "HEAD"]),
+        "workflow_commit": workflow_commit(),
         "build_script_sha256": hashlib.sha256(
             Path("tools/run_phone_cohort.sh").read_bytes()
         ).hexdigest(),
