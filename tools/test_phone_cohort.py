@@ -92,12 +92,16 @@ class CohortTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 cohort.verify_source(root, sha)
 
-    def test_workflow_is_dispatch_only_and_uploads_no_binaries(self):
+    def test_workflow_has_only_isolated_push_and_uploads_no_binaries(self):
         root = Path(__file__).resolve().parents[1]
         workflow = (root / ".github/workflows/phone-cohort.yml").read_text()
         self.assertIn("workflow_dispatch:", workflow)
         self.assertNotIn("pull_request:", workflow)
-        self.assertNotIn("push:", workflow)
+        self.assertIn(
+            "push:\n    branches: [qualification/phone-downlink-20261117]", workflow
+        )
+        self.assertNotIn("branches: [main]", workflow)
+        self.assertNotIn("tags:", workflow)
         self.assertIn("contents: read", workflow)
         self.assertNotIn("write", workflow)
         self.assertNotIn("qualification-output/runtime", workflow)

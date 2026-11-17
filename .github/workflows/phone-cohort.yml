@@ -1,5 +1,7 @@
 name: CI-only phone cohort qualification
 on:
+  push:
+    branches: [qualification/phone-downlink-20261117]
   workflow_dispatch:
 permissions:
   contents: read

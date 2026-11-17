@@ -1,6 +1,6 @@
 # CI-only phone downlink qualification
 
-This manually dispatched workflow does not release packages, update APT, build
+This narrowly triggered workflow does not release packages, update APT, build
 published images, merge branches, install on nodes or access physical radios.
 It retains diagnostic logs and source/architecture/hash manifests only. It is
 not the required full quality gate and cannot authorize a release.
@@ -18,9 +18,11 @@ Prerequisites before invocation:
    branches only after their applicable preflight checks. This is source
    publication, not release qualification. Do not update main, existing PR heads,
    tags, APT or release assets merely to make these commits reachable.
-3. Put this workflow on the workflow repository's default branch through its
-   normal reviewed PR so GitHub can register workflow_dispatch. Dispatch the
-   reviewed qualification ref; record its resolved SHA.
+3. Push the reviewed workflow commit only to
+   qualification/phone-downlink-20261117 in the workflow repository. That exact
+   branch push starts this diagnostic job without changing the default branch.
+   Record its resolved SHA. Manual dispatch remains available only after normal
+   default-branch registration; it is not needed for this qualification run.
 4. The current signed baseline dependencies and private Sofia action must succeed.
    The source codec build verifies its declared upstream archives. The runner
    must have access to those sources. No secrets or provider accounts are used.
