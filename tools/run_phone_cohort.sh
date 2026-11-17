@@ -20,6 +20,8 @@ test -n "${QUALIFICATION_IMAGE:?resolved image required}"
 test -f "${RPTADV_SOFIA_PREFIX:?private Sofia must be prepared}/include/sofia-sip-1.13/sofia-sip/su.h"
 test ! -e "$runtime"
 mkdir -p "$runtime" "$out/logs"
+python3 tools/phone_cohort.py headers --output "$out/include"
+export BINDGEN_EXTRA_CLANG_ARGS="${BINDGEN_EXTRA_CLANG_ARGS:+$BINDGEN_EXTRA_CLANG_ARGS }-I$out/include"
 unset CARGO_TARGET_DIR CARGO_BUILD_TARGET
 export CARGO_BUILD_JOBS=1 RUST_TEST_THREADS=1 CARGO_INCREMENTAL=0
 export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0

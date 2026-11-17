@@ -6,6 +6,7 @@ import json
 import re
 import struct
 import subprocess
+import urllib.request
 from pathlib import Path
 
 REPOSITORIES = {
@@ -17,6 +18,42 @@ REPOSITORIES = {
     "rnnoise": "cpeter1207/rptadv-rnnoise-adapter",
 }
 MACHINES = {"amd64": 62, "arm64": 183}
+
+
+# Released development headers, verified against the retained signed packages.
+HEADER_INPUTS = {
+    "rptadvremote/rptadvremote.h": {
+        "repository": "cpeter1207/librptadvremote",
+        "sha": "041b16b253853d70ef02caf08e217fae06e7e2e3",
+        "sha256": "696b3c9864ff3ed1b53263f159487b91e2d5941dd2b80b9830f1ada3054e7d5a",
+    },
+    "rptadv_hamlib_adapter/rptadv_hamlib_adapter.h": {
+        "repository": "cpeter1207/rptadv-hamlib-adapter",
+        "sha": "fb054d720c6b894008b277fe7cc9737dc7173ff1",
+        "sha256": "7d2a2b9b6c84bab6d1d9cfeadf12b0ee92006e943676c7d947a1af1401fe946c",
+    },
+}
+
+
+def prepare_headers(root):
+    """Fetch only immutable reviewed headers and fail before writing wrong bytes."""
+    for name, item in HEADER_INPUTS.items():
+        url = f"https://raw.githubusercontent.com/{item['repository']}/{item['sha']}/include/{name}"
+        with urllib.request.urlopen(url, timeout=60) as response:
+            data = response.read()
+        if hashlib.sha256(data).hexdigest() != item["sha256"]:
+            raise ValueError(f"header hash mismatch: {name}")
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+
+def header_receipt(root):
+    """Recheck supplemental header bytes before recording their provenance."""
+    for name, item in HEADER_INPUTS.items():
+        if hashlib.sha256((root / name).read_bytes()).hexdigest() != item["sha256"]:
+            raise ValueError(f"header hash mismatch: {name}")
+    return HEADER_INPUTS
 
 
 def validate_manifest(manifest):
@@ -139,6 +176,7 @@ def receipt(manifest, root, runtime, arch, image):
         "architecture": arch,
         "image": image,
         "sources": manifest,
+        "supplemental_headers": header_receipt(runtime.parent / "include"),
         "workflow_commit": command(["git", "rev-parse", "HEAD"]),
         "build_script_sha256": hashlib.sha256(
             Path("tools/run_phone_cohort.sh").read_bytes()
@@ -152,7 +190,7 @@ def receipt(manifest, root, runtime, arch, image):
 def main():
     """Expose narrowly scoped checkout, test-result and provenance operations."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("checkout", "receipt", "tests"))
+    parser.add_argument("action", choices=("checkout", "receipt", "tests", "headers"))
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--sources", type=Path)
     parser.add_argument("--runtime", type=Path)
@@ -162,6 +200,9 @@ def main():
     parser.add_argument("--expected", type=int)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    if args.action == "headers":
+        prepare_headers(args.output)
+        return
     if args.action == "tests":
         require_tests(args.log.read_text(), args.expected)
         return

@@ -37,3 +37,9 @@ packaging and the broader C5 matrix remain separate required work.
 Rust compilation and tests inherit RUSTFLAGS with -Dwarnings appended.
 CARGO_ENCODED_RUSTFLAGS is rejected before building because it would override
 provider Makefile SONAME flags; callers must use RUSTFLAGS instead.
+
+The signed baseline installs remote and hamlib runtimes but omits their SDK
+headers. This diagnostic job fetches those two released headers at exact
+reviewed source commits, rejects any SHA256 mismatch, and records both pins and
+hashes in the before/after receipts. This does not change the six candidate
+source pins, replace runtime packages, or install headers on a node.

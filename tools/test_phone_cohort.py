@@ -1,6 +1,7 @@
 """Reject mutable, mismatched and zero-test CI cohort inputs."""
 
 import copy
+import hashlib
 import os
 import struct
 import subprocess
@@ -175,6 +176,40 @@ class CohortTests(unittest.TestCase):
         for name in ("validate.yml", "phone-cohort.yml"):
             workflow = (root / ".github/workflows" / name).read_text()
             self.assertIn("python3 tools/test_phone_cohort.py", workflow)
+
+    def test_pinned_headers_reject_changed_content_and_record_provenance(self):
+        data = b"verified header"
+        digest = hashlib.sha256(data).hexdigest()
+        inputs = {
+            "remote/header.h": {
+                "repository": "example/repo",
+                "sha": "a" * 40,
+                "sha256": digest,
+            }
+        }
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            mock.patch.object(cohort, "HEADER_INPUTS", inputs),
+        ):
+            root = Path(directory)
+            response = mock.MagicMock()
+            response.__enter__.return_value.read.return_value = data
+            with mock.patch.object(
+                cohort.urllib.request, "urlopen", return_value=response
+            ):
+                cohort.prepare_headers(root)
+            self.assertEqual(cohort.header_receipt(root), inputs)
+            (root / "remote/header.h").write_bytes(b"changed")
+            with self.assertRaisesRegex(ValueError, "header hash"):
+                cohort.header_receipt(root)
+            response.__enter__.return_value.read.return_value = b"wrong download"
+            with (
+                mock.patch.object(
+                    cohort.urllib.request, "urlopen", return_value=response
+                ),
+                self.assertRaisesRegex(ValueError, "header hash"),
+            ):
+                cohort.prepare_headers(root)
 
     def test_zero_failed_ignored_and_wrong_counts_are_not_passes(self):
         cohort.require_tests("test result: ok. 5 passed; 0 failed; 0 ignored;", 5)
