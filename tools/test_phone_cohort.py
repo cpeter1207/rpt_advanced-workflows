@@ -211,6 +211,32 @@ class CohortTests(unittest.TestCase):
             ):
                 cohort.prepare_headers(root)
 
+    def test_candidate_provider_includes_precede_all_builds(self):
+        script = Path(__file__).with_name("run_phone_cohort.sh").read_text()
+        policy = script.split("# BEGIN candidate provider includes")[1].split(
+            "# END candidate provider includes"
+        )[0]
+        result = subprocess.run(
+            ["bash", "-eu", "-c", policy + '\nprintf "%s" "$BINDGEN_EXTRA_CLANG_ARGS"'],
+            env={
+                **os.environ,
+                "sources": "/exact/sources",
+                "BINDGEN_EXTRA_CLANG_ARGS": "-I/verified/supplemental",
+            },
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertEqual(
+            result.stdout,
+            "-I/exact/sources/adapter/include -I/exact/sources/radio/include "
+            "-I/exact/sources/rnnoise/include -I/verified/supplemental",
+        )
+        self.assertLess(
+            script.index("# END candidate provider includes"),
+            script.index("make -j1 all"),
+        )
+
     def test_zero_failed_ignored_and_wrong_counts_are_not_passes(self):
         cohort.require_tests("test result: ok. 5 passed; 0 failed; 0 ignored;", 5)
         for value in (

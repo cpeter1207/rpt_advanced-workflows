@@ -22,6 +22,9 @@ test ! -e "$runtime"
 mkdir -p "$runtime" "$out/logs"
 python3 tools/phone_cohort.py headers --output "$out/include"
 export BINDGEN_EXTRA_CLANG_ARGS="${BINDGEN_EXTRA_CLANG_ARGS:+$BINDGEN_EXTRA_CLANG_ARGS }-I$out/include"
+# BEGIN candidate provider includes
+export BINDGEN_EXTRA_CLANG_ARGS="-I$sources/adapter/include -I$sources/radio/include -I$sources/rnnoise/include${BINDGEN_EXTRA_CLANG_ARGS:+ $BINDGEN_EXTRA_CLANG_ARGS}"
+# END candidate provider includes
 unset CARGO_TARGET_DIR CARGO_BUILD_TARGET
 export CARGO_BUILD_JOBS=1 RUST_TEST_THREADS=1 CARGO_INCREMENTAL=0
 export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
