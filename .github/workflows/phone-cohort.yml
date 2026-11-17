@@ -1,0 +1,71 @@
+name: CI-only phone cohort qualification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=ghcr.io/cpeter1207/rpt-advanced-quality-debian13
+          docker pull "$image:latest"
+          digest=$(docker image inspect "$image:latest" --format '{{index .RepoDigests 0}}')
+          [[ "$digest" =~ ^ghcr.io/cpeter1207/rpt-advanced-quality-debian13@sha256:[0-9a-f]{64}$ ]]
+          echo "image=$digest" >> "$GITHUB_OUTPUT"
+  native:
+    needs: image
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.image.outputs.image }}
+      options: --cpus 1 --memory 1536m --memory-swap 1536m --pids-limit 256
+    env:
+      EXPECTED_ARCH: ${{ matrix.arch }}
+      QUALIFICATION_IMAGE: ${{ needs.image.outputs.image }}
+      CARGO_BUILD_JOBS: '1'
+      RUST_TEST_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Fetch immutable reviewed source cohort
+        run: python3 tools/phone_cohort.py checkout --manifest qualification/phone-downlink.json --sources sources
+      - name: Install released baseline dependencies
+        uses: ./.github/actions/install-shared-dependencies
+        with:
+          manifest: sources/controller/.github/dependencies.json
+          install: 'true'
+      - name: Provision pinned private Sofia without publication
+        uses: ./.github/actions/provision-private-sofia
+      - name: Build native private cohort and test downlink
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-output/logs
+          bash tools/run_phone_cohort.sh 2>&1 | tee qualification-output/logs/build-and-test.log
+      - name: Retain diagnostic evidence only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: phone-cohort-evidence-${{ matrix.arch }}
+          path: |
+            qualification-output/*.json
+            qualification-output/logs/
+          if-no-files-found: warn
+          retention-days: 14
