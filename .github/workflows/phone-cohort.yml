@@ -44,6 +44,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Verify CI-only cohort regression contracts
+        run: python3 tools/test_phone_cohort.py
       - name: Fetch immutable reviewed source cohort
         run: python3 tools/phone_cohort.py checkout --manifest qualification/phone-downlink.json --sources sources
       - name: Install released baseline dependencies

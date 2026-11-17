@@ -1,6 +1,15 @@
 #!/bin/bash
 # CI-only source qualification. Never install or publish the resulting libraries.
 set -euo pipefail
+# BEGIN Rust warning policy
+# Encoded flags override RUSTFLAGS, including provider Makefile SONAME options.
+# Reject even an empty encoded override rather than silently dropping flags.
+if [[ ${CARGO_ENCODED_RUSTFLAGS+x} ]]; then
+    echo "CARGO_ENCODED_RUSTFLAGS is unsupported; use RUSTFLAGS for this cohort" >&2
+    exit 1
+fi
+export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-Dwarnings"
+# END Rust warning policy
 root=$(pwd)
 sources="$root/sources"
 out="$root/qualification-output"

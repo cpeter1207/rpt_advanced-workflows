@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      - name: Verify CI-only cohort regression contracts
+        run: python3 tools/test_phone_cohort.py
       - name: Verify release package staging
         run: python3 tools/test_release_artifact_path.py
       - name: Verify release package-index notification

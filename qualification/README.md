@@ -31,3 +31,7 @@ The first native build may reveal missing image prerequisites, resource limits
 or source composition errors. Report those as failures, not a reason to weaken
 checks. Hardware acceptance, production coverage, complete core/product suites,
 packaging and the broader C5 matrix remain separate required work.
+
+Rust compilation and tests inherit RUSTFLAGS with -Dwarnings appended.
+CARGO_ENCODED_RUSTFLAGS is rejected before building because it would override
+provider Makefile SONAME flags; callers must use RUSTFLAGS instead.

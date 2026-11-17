@@ -1,11 +1,13 @@
 """Reject mutable, mismatched and zero-test CI cohort inputs."""
 
 import copy
+import os
 import struct
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import phone_cohort as cohort
 
@@ -100,6 +102,75 @@ class CohortTests(unittest.TestCase):
         self.assertNotIn("write", workflow)
         self.assertNotIn("qualification-output/runtime", workflow)
         self.assertIn("ubuntu-24.04-arm", workflow)
+
+    def test_warning_policy_preserves_flags_and_rejects_encoded_override(self):
+        script = Path(__file__).with_name("run_phone_cohort.sh").read_text()
+        policy = script.split("# BEGIN Rust warning policy")[1].split(
+            "# END Rust warning policy"
+        )[0]
+        env = {**os.environ, "RUSTFLAGS": "-C opt-level=1 -Awarnings"}
+        env.pop("CARGO_ENCODED_RUSTFLAGS", None)
+        result = subprocess.run(
+            ["bash", "-eu", "-c", policy + '\nprintf "%s" "$RUSTFLAGS"'],
+            env=env,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertEqual(result.stdout, "-C opt-level=1 -Awarnings -Dwarnings")
+        env["CARGO_ENCODED_RUSTFLAGS"] = ""
+        result = subprocess.run(
+            ["bash", "-eu", "-c", policy],
+            check=False,
+            env=env,
+            text=True,
+            capture_output=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("CARGO_ENCODED_RUSTFLAGS", result.stderr)
+
+    def test_receipt_rejects_candidate_dependency_outside_private_runtime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory)
+            names = (
+                "librptadv_product.so.3",
+                "libusbradioplus_product.so.1",
+                "librptadv_portaudio_alsa_adapter.so.2",
+                "librptadvradio.so.5",
+                "librptadv_rnnoise_adapter.so.1",
+                "librptadv_codec_g711.so.1",
+                "librptadv_sip_adapter.so.1",
+                "usbradioplus_agc.so",
+            )
+            for name in names:
+                (runtime / name).write_bytes(b"fixture")
+
+            def command(args, cwd=None):
+                if args[0] == "dpkg":
+                    return "amd64"
+                if args[0] == "ldd":
+                    return "  librptadvradio.so.5 => /usr/lib/librptadvradio.so.5 (0x0)"
+                raise AssertionError(args)
+
+            with (
+                mock.patch.object(cohort, "command", side_effect=command),
+                mock.patch.object(cohort, "verify_elf"),
+                self.assertRaisesRegex(ValueError, "candidate dependency escaped"),
+            ):
+                cohort.receipt(
+                    {},
+                    runtime,
+                    runtime,
+                    "amd64",
+                    "ghcr.io/cpeter1207/rpt-advanced-quality-debian13@sha256:"
+                    + "a" * 64,
+                )
+
+    def test_regressions_are_wired_into_both_workflows(self):
+        root = Path(__file__).resolve().parents[1]
+        for name in ("validate.yml", "phone-cohort.yml"):
+            workflow = (root / ".github/workflows" / name).read_text()
+            self.assertIn("python3 tools/test_phone_cohort.py", workflow)
 
     def test_zero_failed_ignored_and_wrong_counts_are_not_passes(self):
         cohort.require_tests("test result: ok. 5 passed; 0 failed; 0 ignored;", 5)
