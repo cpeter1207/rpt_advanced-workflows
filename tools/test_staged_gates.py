@@ -1,10 +1,13 @@
 """Fast regression contracts for ordinary staged gate invocation."""
-import unittest
 import copy
-
-from staged_phone import PINS
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import staged_gates as gates
+from staged_phone import PINS
 
 
 class StagedGateTests(unittest.TestCase):
@@ -30,6 +33,32 @@ class StagedGateTests(unittest.TestCase):
             bad[field] = "wrong"
             with self.subTest(field=field), self.assertRaises(ValueError):
                 gates.validate_testbed(bad, "arm64", "base", "local", "workflow", "recipe")
+
+    def test_independent_and_coverage_recheck_installed_bytes(self):
+        for phase in ("independent", "coverage"):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                (root / "qualification").mkdir()
+                (root / "qualification/phone-staged-baseline.json").write_text("[]")
+                (root / "sources/controller/.github").mkdir(parents=True)
+                (root / "sources/controller/.github/dependencies.json").write_text("[]")
+                (root / "staged-output").mkdir()
+                measured = {"files_sha256": {"usr/lib/test.so": "hash"}}
+                with (patch.object(gates, "guard"), patch.object(gates, "gate_plan", return_value=[]),
+                      patch.object(gates, "restore", return_value=(["archive"], {})),
+                      patch.object(gates, "installed_receipt", return_value=measured) as verify):
+                    gates.execute(root, phase, "amd64", "image")
+                verify.assert_called_once_with(["archive"], "amd64")
+                self.assertEqual(json.loads((root / "staged-output" /
+                                             (phase + "-installed-after.json")).read_text()), measured)
+
+    def test_post_gate_byte_mismatch_propagates_without_success_receipt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with (patch.object(gates, "installed_receipt", side_effect=ValueError("changed bytes")),
+                  self.assertRaises(ValueError)):
+                gates.verify_after_gate(root, ["archive"], "amd64", "coverage")
+            self.assertFalse((root / "staged-output/coverage-installed-after.json").exists())
 
     def test_arm_native_never_invokes_coverage(self):
         plan = gates.gate_plan("native", "arm64")

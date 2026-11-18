@@ -10,8 +10,16 @@ import subprocess
 from pathlib import Path
 
 from phone_cohort import command, verify_source, workflow_commit
+from staged_image import load_receipt
 from staged_packages import ORDER, guard, install, installed_receipt, inventory
-from staged_phone import PINS, merge_packages, select_packages, sha256, validate_baseline, validate_sources
+from staged_phone import (
+    PINS,
+    merge_packages,
+    select_packages,
+    sha256,
+    validate_baseline,
+    validate_sources,
+)
 
 SOFIA_PACKAGES = {"libsofia-sip-ua0", "libsofia-sip-ua-dev"}
 
@@ -81,6 +89,8 @@ def restore(root, architecture, image):
     validate_sources(manifest)
     if receipt["sources"] != manifest:
         raise ValueError("prepared repository identity differs")
+    if receipt["image_identity"] != load_receipt(root, image, architecture):
+        raise ValueError("prepared image platform/config differs")
     actual = inventory(output / "packages")
     expected = receipt["packages"]
     fields = ("package", "version", "arch", "sha256")
@@ -94,6 +104,14 @@ def restore(root, architecture, image):
     if installed["files_sha256"] != receipt["installed"]["files_sha256"]:
         raise ValueError("restored package headers or ELF differ")
     return actual, manifest
+
+
+def verify_after_gate(root, packages, architecture, phase):
+    """Re-measure archive-bound installed bytes and resolution after every gate."""
+    measured = installed_receipt(packages, architecture)
+    path = root / "staged-output" / (phase + "-installed-after.json")
+    path.write_text(json.dumps(measured, indent=2) + "\n")
+    return measured
 
 
 def execute(root, phase, architecture, image):
@@ -147,8 +165,9 @@ def execute(root, phase, architecture, image):
                 raise subprocess.CalledProcessError(returncode, arguments)
         for role, item in manifest.items():
             verify_source(sources / role, item["sha"])
+        verify_after_gate(root, packages, architecture, phase)
         if phase == "native":
-            required = set(re.findall(r"^Package: (.+)$", (sources / "controller/debian/control").read_text(), re.M))
+            required = set(re.findall(r"^Package: (.+)$", (sources / "controller/debian/control").read_text(), re.MULTILINE))
             controller = select_packages(inventory(sources), required, architecture)
             for item in controller:
                 target = output / "packages" / Path(item["path"]).name
@@ -160,7 +179,8 @@ def execute(root, phase, architecture, image):
             install(packages)
             installed = installed_receipt(packages, architecture)
             (output / "installed.json").write_text(json.dumps({
-                "architecture": architecture, "image": image, "sources": manifest,
+                "architecture": architecture, "image": image,
+                "image_identity": load_receipt(root, image, architecture), "sources": manifest,
                 "workflow_commit": workflow_commit(), "packages": packages,
                 "installed": installed,
             }, indent=2) + "\n")

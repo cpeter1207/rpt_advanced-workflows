@@ -1,5 +1,6 @@
 """Fast contracts for the hosted-only native RNNoise testbed."""
 import unittest
+
 from staged_testbed import build_arguments, validate_host
 
 

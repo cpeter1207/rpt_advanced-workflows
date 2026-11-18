@@ -9,7 +9,14 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from phone_cohort import REPOSITORIES, command, dependencies, verify_source, workflow_commit
+from phone_cohort import (
+    REPOSITORIES,
+    command,
+    dependencies,
+    verify_source,
+    workflow_commit,
+)
+from staged_image import load_receipt
 from staged_phone import (
     merge_packages,
     package_files,
@@ -113,9 +120,8 @@ def installed_receipt(items, architecture):
         for library, target in resolved.items():
             actual = str(Path(target).resolve())
             digest = sha256(target)
-            if library.split(".so")[0] in candidate_names:
-                if resolved_candidates.get(actual) != digest:
-                    raise ValueError(f"candidate resolution escaped selected packages: {target}")
+            if library.split(".so")[0] in candidate_names and resolved_candidates.get(actual) != digest:
+                raise ValueError(f"candidate resolution escaped selected packages: {target}")
             hashes[actual] = digest
         elf[name] = {"dynamic": dynamic, "resolved_sha256": hashes}
     return {"files_sha256": expected, "elf": elf,
@@ -138,6 +144,7 @@ def prepare(root, architecture, image):
     validate_baseline(json.loads((sources / "controller/.github/dependencies.json").read_text()), baseline)
     for role, entry in manifest.items():
         verify_source(sources / role, entry["sha"])
+    image_identity = load_receipt(root, image, architecture)
     output = root / "staged-output"
     output.mkdir(exist_ok=True)
     destination = output / "packages"
@@ -177,7 +184,7 @@ def prepare(root, architecture, image):
     install(final)
     receipt = {
         "scope": "private preparation only; native/full gates pending; not a release",
-        "architecture": architecture, "image": image, "sources": manifest,
+        "architecture": architecture, "image": image, "image_identity": image_identity, "sources": manifest,
         "workflow_commit": workflow_commit(), "packages": final,
         "extra_prerequisites": json.loads((output / "sofia.json").read_text()),
         "baseline_sha256": sha256(root / "qualification/phone-staged-baseline.json"),

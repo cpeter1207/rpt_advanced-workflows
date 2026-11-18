@@ -1,6 +1,7 @@
 """Structure contracts for manual-only staged native qualification."""
 import unittest
 from pathlib import Path
+
 import yaml
 
 
@@ -24,6 +25,17 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('independent', jobs['coverage']['needs'])
         self.assertNotIn('strategy', jobs['coverage'])
         self.assertNotIn('strategy', jobs['independent'])
+
+    def test_each_job_uses_its_explicit_native_manifest_and_receipt(self):
+        jobs = self.workflow['jobs']
+        self.assertEqual(set(jobs['image']['outputs']), {'amd64', 'arm64'})
+        for phase in ('prepare', 'independent', 'native', 'coverage'):
+            key = 'matrix.arch' if phase in ('prepare', 'native') else "'amd64'"
+            expected = '${{ needs.image.outputs[' + key + '] }}'
+            self.assertEqual(jobs[phase]['container']['image'], expected)
+            self.assertEqual(jobs[phase]['env']['QUALIFICATION_IMAGE'], expected)
+            self.assertTrue(any(step.get('with', {}).get('name') == 'staged-image-receipts'
+                                for step in jobs[phase]['steps']))
 
     def test_docker_socket_is_native_only(self):
         for name, job in self.workflow['jobs'].items():

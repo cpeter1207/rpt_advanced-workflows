@@ -88,9 +88,8 @@ def verify_observed(paths, files):
     if {Path(name).name for name in required} != REQUIRED:
         raise ValueError("required installed runtime package inventory incomplete")
     for path in paths:
-        if path.name.split(".so")[0] in names:
-            if candidates.get(path.resolve()) != sha256(path):
-                raise ValueError(f"observed project DSO escaped package bytes: {path}")
+        if path.name.split(".so")[0] in names and candidates.get(path.resolve()) != sha256(path):
+            raise ValueError(f"observed project DSO escaped package bytes: {path}")
     verify_loaded(paths, required)
     return {str(path): sha256(path) for path in sorted(paths) if path.is_file()}
 

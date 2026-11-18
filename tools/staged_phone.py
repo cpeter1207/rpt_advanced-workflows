@@ -67,7 +67,7 @@ def loaded_paths(log):
     """Read glibc successful initialization paths, not attempted search names."""
     return {
         Path(name)
-        for name in re.findall(r"^\s*\d+:\s+calling init:\s+(/[^\n]+?)\s*$", log, re.M)
+        for name in re.findall(r"^\s*\d+:\s+calling init:\s+(/[^\n]+?)\s*$", log, re.MULTILINE)
     }
 
 

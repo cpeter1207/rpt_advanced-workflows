@@ -91,3 +91,33 @@ push inputs). No such trigger or pin has been added yet. Do not describe this
 preparation-only workflow as ready to invoke. Actionlint, ShellCheck, full
 Python discovery, native builds, upstream tests and installed checks still
 require their stated tool-complete hosted validation.
+
+## Reviewed provenance gaps and bounded validator results
+
+The image resolver now retains the immutable index, selects exactly one Linux
+manifest for each native architecture, records its config image ID, and binds
+every job to that explicit platform manifest rather than an implicit index
+selection. Receipts describe registry-declared manifest/config identity, not
+an unobserved running-container inspect result. Prepared package receipts and
+restored gates require the same architecture-specific image evidence.
+
+Every successful ordinary gate now re-measures archive-bound installed headers,
+ELF bytes and loader resolution. Independent and coverage phases retain their
+own after-gate receipts; mutation errors propagate rather than writing success.
+Tests cover both phase executions and rejection without a success receipt.
+
+Fast validation completed in the already cached amd64 quality image
+`sha256:d6acd42a4bcb1138e8ea5a9524b1b9f04ee39b6102d41183c8820d9aa4300b12`:
+115 Python discovery tests passed, Ruff passed for staged helpers/tests and the
+installed runner, 25 changed workflow/action inline shell programs passed
+ShellCheck, and git diff --check passed. Source was read-only, networking and
+Docker socket absent, no pull/install/build occurred, and temporary fixtures
+were limited to bounded executable tmpfs. The earlier noexec-tmpfs failure log
+is retained separately, not represented as a product defect. Both host disks
+retained their >2GiB reserve and existing services remained running.
+
+Actionlint remains unavailable and unrun. Native package creation, real upstream
+Sofia checks, ordinary product/provider gates, actual installed-byte tests,
+ARM execution and coverage remain unrun. Passing validator tests is not native
+qualification. Publication trigger/image pin remains a separately reviewed
+follow-up; no main, release, APT, test-image or live-node change occurred.
