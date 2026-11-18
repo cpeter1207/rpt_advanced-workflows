@@ -71,6 +71,17 @@ python3 tools/phone_cohort.py tests --log "$out/logs/downlink.log" --expected 5
     cargo test --locked -p rpt-advanced-standalone --lib real_product_sip_call_ -- --test-threads=1 --nocapture
 ) 2>&1 | tee "$out/logs/native-sip.log"
 python3 tools/phone_cohort.py tests --log "$out/logs/native-sip.log" --expected 2
+# Exercise the native media owner and its real product-ring bridge on each arch.
+(
+    cd "$sources/controller"
+    cargo test --locked -p rpt-advanced-standalone --lib phone::call_media::tests:: -- --test-threads=1 --nocapture
+) 2>&1 | tee "$out/logs/native-rtp.log"
+python3 tools/phone_cohort.py tests --log "$out/logs/native-rtp.log" --expected 38
+(
+    cd "$sources/controller"
+    cargo test --locked -p rptadv-product --lib link::private_phone::tests::native_ring:: -- --test-threads=1 --nocapture
+) 2>&1 | tee "$out/logs/native-ring.log"
+python3 tools/phone_cohort.py tests --log "$out/logs/native-ring.log" --expected 7
 python3 tools/phone_cohort.py receipt --manifest qualification/phone-downlink.json     --sources "$sources" --runtime "$runtime" --arch "$arch"     --image "$QUALIFICATION_IMAGE" --output "$out/after.json"
 cmp "$out/before.json" "$out/after.json"
 echo "Scoped native phone cohort passed; NOT a full quality gate or hardware test."

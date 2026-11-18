@@ -1,5 +1,5 @@
 {
-  "controller": {"repository": "cpeter1207/rpt_advanced", "sha": "78c0b54034d19b0d635d93a831dc05d5ccafd9fe"},
+  "controller": {"repository": "cpeter1207/rpt_advanced", "sha": "5e94f7df416e33c311b05d95a7ba56273d7077e7"},
   "sdk": {"repository": "cpeter1207/USBRadioPlus", "sha": "3bcd75465120b87fabdf25a2b2e8c4a0e808e842"},
   "adapter": {"repository": "cpeter1207/rptadv-portaudio-alsa-adapter", "sha": "8dbf88fa929940f74e7b918e339edef503cca7f6"},
   "codec": {"repository": "cpeter1207/rptadv-codec-adapters", "sha": "8596809c3ff8493d705bc2f65371e9f0b6e4fef2"},

@@ -9,8 +9,10 @@ The manifest pins all six project source repositories by commit. Each native
 Debian 13 job builds its own dynamic candidate libraries in a private directory,
 checks ELF architecture and transitive dependency resolution, and records the
 resolved quality image, package inventory, source commits and binary hashes
-before and after five downlink and two native SIP loopback tests. Zero/ignored
-selections and binary changes fail. Existing fixed-amd64 C5 runners are unchanged.
+before and after five downlink, two native SIP loopback, 38 native RTP media-owner
+and seven product native-ring tests (including prolonged expiry). Both amd64 and
+arm64 run all four selections with exact expected counts. Zero/ignored selections
+and binary changes fail. Existing fixed-amd64 C5 runners are unchanged.
 
 Prerequisites before invocation:
 1. Independently review these workflow changes and run workflow validation.

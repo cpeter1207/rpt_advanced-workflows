@@ -3,6 +3,7 @@
 import copy
 import hashlib
 import os
+import re
 import struct
 import subprocess
 import tempfile
@@ -112,6 +113,44 @@ class CohortTests(unittest.TestCase):
         self.assertNotIn("write", workflow)
         self.assertNotIn("qualification-output/runtime", workflow)
         self.assertIn("ubuntu-24.04-arm", workflow)
+
+    def test_runner_invokes_every_scoped_suite_and_checks_exact_counts(self):
+        script = Path(__file__).with_name("run_phone_cohort.sh").read_text()
+        suites = re.findall(
+            r"cargo test --locked -p (\S+) --lib (\S+) -- "
+            r"--test-threads=1 --nocapture\n"
+            r'\) 2>&1 \| tee "\$out/logs/([^"/]+)"\n'
+            r'python3 tools/phone_cohort.py tests --log "\$out/logs/\3" '
+            r"--expected (\d+)",
+            script,
+        )
+        self.assertEqual(
+            suites,
+            [
+                ("rptadv-product", "downlink_", "downlink.log", "5"),
+                (
+                    "rpt-advanced-standalone",
+                    "real_product_sip_call_",
+                    "native-sip.log",
+                    "2",
+                ),
+                (
+                    "rpt-advanced-standalone",
+                    "phone::call_media::tests::",
+                    "native-rtp.log",
+                    "38",
+                ),
+                (
+                    "rptadv-product",
+                    "link::private_phone::tests::native_ring::",
+                    "native-ring.log",
+                    "7",
+                ),
+            ],
+        )
+        self.assertEqual(script.count("cargo test --locked"), len(suites))
+        self.assertLess(script.index("before.json"), script.index("cargo test"))
+        self.assertLess(script.rindex("--expected"), script.index("after.json"))
 
     def test_warning_policy_preserves_flags_and_rejects_encoded_override(self):
         script = Path(__file__).with_name("run_phone_cohort.sh").read_text()
