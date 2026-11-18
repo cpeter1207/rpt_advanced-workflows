@@ -61,12 +61,12 @@ runs:
         apt-get "${options[@]}" download \
           libusbradioplus-product1 libusbradioplus-product-dev \
           librptadvremote1 librptadvremote-dev librptadv-hamlib-adapter1 librptadv-hamlib-adapter-dev \
-          librptadv-rnnoise-adapter1 librptadv-rnnoise-adapter-dev librnnoise0
+          librptadv-rnnoise-adapter1 librptadv-rnnoise-adapter-dev librnnoise0 librnnoise-dev
         # Candidate radio sources need the released RNNoise development surface.
         # Bootstrap uses the same signed index and retains the matching runtime pair.
         mkdir -p "$directory/bootstrap"
         cp librptadv-rnnoise-adapter1_*.deb librptadv-rnnoise-adapter-dev_*.deb \
-          librnnoise0_*.deb "$directory/bootstrap/"
+          librnnoise0_*.deb librnnoise-dev_*.deb "$directory/bootstrap/"
         for package in libusbradioplus-product1_*.deb libusbradioplus-product-dev_*.deb; do
           dpkg --compare-versions "$(dpkg-deb -f "$package" Version)" ge 0.1.0~alpha35-1.deb13
         done

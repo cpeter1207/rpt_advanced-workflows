@@ -145,6 +145,11 @@ class StagedPhoneTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 staged.verify_loaded({selected, other}, {str(selected): staged.sha256(selected)})
 
+    def test_bootstrap_includes_real_rnnoise_development_package(self):
+        text = (Path(__file__).resolve().parents[1] / ".github/actions/bootstrap-staged-phone/action.yml").read_text()
+        self.assertIn("librnnoise0 librnnoise-dev", text)
+        self.assertIn("librnnoise-dev_*.deb", text)
+
     def test_bootstrap_installer_is_pinned_before_execution(self):
         text = (Path(__file__).resolve().parents[1] / ".github/actions/bootstrap-staged-phone/action.yml").read_text()
         self.assertIn("install-candidate-dependencies@0fd80670536df45efb5b9738e6c116f1f9527870", text)
