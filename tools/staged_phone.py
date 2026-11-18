@@ -2,9 +2,10 @@
 
 import hashlib
 import re
+import subprocess
 from pathlib import Path
 
-from phone_cohort import validate_manifest
+from phone_cohort import validate_manifest, verify_elf
 
 CONTROLLER = "bc46f631d8da28fd69b41e4e1c33c7e3410d163b"
 PINS = {
@@ -75,11 +76,11 @@ def verify_loaded(paths, expected):
     selected = {Path(name).resolve(): digest for name, digest in expected.items()}
     if len(selected) != len(expected):
         raise ValueError("ambiguous selected DSO paths")
-    names = {Path(name).name for name in expected}
+    names = {Path(name).name.split(".so")[0] for name in expected}
     loaded = set()
     for path in paths:
         resolved = path.resolve()
-        if path.name in names and resolved not in selected:
+        if path.name.split(".so")[0] in names and resolved not in selected:
             raise ValueError(f"candidate DSO loaded outside selected package: {path}")
         loaded.add(resolved)
     if not set(selected).issubset(loaded):
@@ -88,3 +89,54 @@ def verify_loaded(paths, expected):
         if not path.is_file() or sha256(path) != digest:
             raise ValueError(f"loaded byte mismatch: {path}")
     return expected.copy()
+
+
+def validate_baseline(actual, expected):
+    """Reject all baseline drift, including IAX and binary package selections."""
+    if actual != expected:
+        raise ValueError("controller baseline dependency manifest changed")
+
+
+def select_packages(items, required, architecture):
+    """Require exactly one native artifact for each requested binary package."""
+    selected = merge_packages([], items, architecture)
+    result = [item for item in selected if item["package"] in required]
+    if {item["package"] for item in result} != set(required):
+        raise ValueError("missing required package artifact")
+    return result
+
+
+def package_info(path):
+    """Read binary metadata and hash the exact local Debian archive."""
+    path = Path(path).resolve(strict=True)
+    fields = subprocess.check_output(
+        ["dpkg-deb", "--show", "--showformat=${Package}\\t${Version}\\t${Architecture}", str(path)],
+        text=True,
+    ).split("\t")
+    if len(fields) != 3:
+        raise ValueError("invalid Debian package metadata")
+    name, version, architecture = fields
+    return {"package": name, "version": version, "arch": architecture,
+            "path": str(path), "sha256": sha256(path)}
+
+
+def package_files(package, stage, architecture):
+    """Extract a build-owned archive and inventory its headers and native ELF."""
+    stage = Path(stage).resolve()
+    stage.mkdir()
+    subprocess.run(["dpkg-deb", "--extract", str(package), str(stage)], check=True)
+    result = {}
+    for path in sorted(stage.rglob("*")):
+        if not path.is_file():
+            continue
+        resolved = path.resolve()
+        if not resolved.is_relative_to(stage):
+            raise ValueError("package symlink escapes extraction root")
+        name = path.relative_to(stage).as_posix()
+        with path.open("rb") as stream:
+            elf = stream.read(4) == b"\x7fELF"
+        if elf:
+            verify_elf(path, architecture)
+        if elf or name.startswith("usr/include/"):
+            result[name] = sha256(path)
+    return result

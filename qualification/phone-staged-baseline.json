@@ -1,0 +1,66 @@
+[
+  {
+    "repository": "librptadvradio",
+    "sha": "8c5b5b41bc054a98dc7d36a7f199089bdc82b3b3",
+    "packages": ["librptadvradio5", "librptadvradio-dev"]
+  },
+  {
+    "repository": "rptadv-gpio-adapter",
+    "sha": "a5bd54f310bbc98447c97d8f139d4fa503b2241a",
+    "packages": ["librptadv-gpio-adapter1", "librptadv-gpio-adapter-dev"]
+  },
+  {
+    "repository": "librptadvdtmf",
+    "sha": "06948a9a78933ed36299279a49bfaaa189eb3377",
+    "packages": ["librptadvdtmf1", "librptadvdtmf-dev"]
+  },
+  {
+    "repository": "rptadv-codec-adapters",
+    "sha": "5ed83bb4d52985e68a455fce4a3145ee6907c107",
+    "packages": [
+      "librptadv-codec-dev", "librptadv-codec-g7111", "librptadv-codec-pcm1",
+      "librptadv-codec-gsm1", "librptadv-codec-speex1", "librptadv-codec-opus1",
+      "librptadv-codec-ffmpeg1", "librptadv-codec-bcg7291", "librptadv-codec-ilbc1",
+      "librptadv-codec-spandsp1", "librptadv-codec-dialogic1",
+      "librptadv-bcg729-gpl2-0", "librptadv-ilbc2-2", "librptadv-dialogic1"
+    ]
+  },
+  {
+    "repository": "librptadviax2",
+    "sha": "ce9fe2da0d8480c1503f5eb80c3c95d8ac2e5360",
+    "packages": ["librptadv-iax2-client2", "librptadv-iax2-client-dev"]
+  },
+  {
+    "repository": "rptadv-portaudio-alsa-adapter",
+    "sha": "cc63a779d9619c9b3c1f9096d33f81cad4ea720d",
+    "packages": [
+      "librptadv-portaudio-alsa-adapter2",
+      "librptadv-portaudio-alsa-adapter-dev"
+    ]
+  },
+  {
+    "repository": "rptadv-ffmpeg-adapter",
+    "sha": "b3accbe01ed5c864a6b569ae0cbd52313f65a43d",
+    "packages": ["librptadv-ffmpeg-adapter1", "librptadv-ffmpeg-adapter-dev"]
+  },
+  {
+    "repository": "rptadv-samplerate-adapter",
+    "sha": "7c2081290fbaa6b23d8a46270b4a4797b7c94477",
+    "packages": ["librptadv-samplerate-adapter2", "librptadv-samplerate-adapter-dev"]
+  },
+  {
+    "repository": "rate_adjusting_pcm_ring",
+    "sha": "360e7312a4a367418ddac04bd81b8996d8a0ae80",
+    "packages": ["librate-adjusting-pcm-ring3", "librate-adjusting-pcm-ring3-dev"]
+  },
+  {
+    "repository": "librptadvschedule",
+    "sha": "9f4c39c2f1f0956c2c8ae3afbb34edf9dd30edc9",
+    "packages": ["librptadvschedule1", "librptadvschedule-dev"]
+  },
+  {
+    "repository": "librptadvecholink",
+    "sha": "cb57a9f25591ffb3e8a48c82fad3ea5fe0bbad0c",
+    "packages": ["librptadvecholink1", "librptadvecholink-dev"]
+  }
+]
