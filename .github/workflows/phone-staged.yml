@@ -1,11 +1,7 @@
-name: Manual staged phone package qualification
+name: Isolated staged phone package qualification
 on:
-  workflow_dispatch:
-    inputs:
-      quality_image:
-        description: Reviewed immutable multi-platform quality image digest (no tag)
-        required: true
-        type: string
+  push:
+    branches: [qualification/phone-staged-20261118]
 permissions:
   contents: read
 concurrency:
@@ -30,9 +26,10 @@ jobs:
           for suite in staged_phone staged_package_plan installed_phone staged_gates staged_sofia staged_testbed staged_workflow staged_image; do
             python3 "tools/test_${suite}.py"
           done
+      - uses: raven-actions/actionlint@v2
       - id: check
         env:
-          IMAGE: ${{ inputs.quality_image }}
+          IMAGE: ghcr.io/cpeter1207/rpt-advanced-quality-debian13@sha256:c3800ed0094d0d01284b70481d3189a76044042b2900594115db2e2a41f2d0fa
         run: |
           set -euo pipefail
           [[ "$IMAGE" =~ ^ghcr.io/cpeter1207/rpt-advanced-quality-debian13@sha256:[0-9a-f]{64}$ ]]

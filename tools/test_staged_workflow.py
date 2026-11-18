@@ -10,11 +10,30 @@ class WorkflowTests(unittest.TestCase):
         self.workflow = yaml.safe_load((Path(__file__).resolve().parents[1] /
                                        '.github/workflows/phone-staged.yml').read_text())
 
-    def test_manual_only_read_only_publication_scope(self):
+    def test_exact_branch_only_read_only_publication_scope(self):
         trigger = self.workflow.get('on', self.workflow.get(True))
-        self.assertEqual(set(trigger), {'workflow_dispatch'})
+        self.assertEqual(trigger, {'push': {'branches': ['qualification/phone-staged-20261118']}})
         self.assertEqual(self.workflow['permissions'], {'contents': 'read'})
-        self.assertTrue(trigger['workflow_dispatch']['inputs']['quality_image']['required'])
+        check = next(step for step in self.workflow['jobs']['image']['steps'] if step.get('id') == 'check')
+        self.assertEqual(check['env']['IMAGE'],
+                         'ghcr.io/cpeter1207/rpt-advanced-quality-debian13@sha256:'
+                         'c3800ed0094d0d01284b70481d3189a76044042b2900594115db2e2a41f2d0fa')
+
+    def test_other_workflows_cannot_run_for_staged_branch_push(self):
+        root = Path(__file__).resolve().parents[1]
+        branch = 'qualification/phone-staged-20261118'
+        for path in (root / '.github/workflows').glob('*.yml'):
+            if path.name == 'phone-staged.yml':
+                continue
+            workflow = yaml.safe_load(path.read_text())
+            trigger = workflow.get('on', workflow.get(True))
+            if 'push' in trigger:
+                push = trigger['push']
+                self.assertIsInstance(push, dict, path.name)
+                self.assertIn('branches', push, path.name)
+                self.assertNotIn(branch, push['branches'], path.name)
+                self.assertFalse(any('*' in value or '?' in value or value.startswith('!')
+                                     for value in push['branches']), path.name)
 
     def test_architectures_and_order(self):
         jobs = self.workflow['jobs']
