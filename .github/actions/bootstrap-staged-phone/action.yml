@@ -1,0 +1,130 @@
+name: Bootstrap isolated staged phone dependencies
+description: Download release-verified and signed-APT Debian packages for the active native architecture.
+
+inputs:
+  manifest:
+    description: Dependency manifest from the production checkout.
+    default: .github/dependencies.json
+  install:
+    description: Install the selected packages into a Debian 13 validation job.
+    default: 'false'
+
+outputs:
+  package-directory:
+    value: ${{ steps.dependencies.outputs.package_directory }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install dependency action tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v gh >/dev/null || ! command -v jq >/dev/null || ! command -v curl >/dev/null || ! command -v gpg >/dev/null; then
+          privilege=()
+          if [[ "$(id -u)" != 0 ]]; then privilege=(sudo); fi
+          "${privilege[@]}" apt-get update
+          "${privilege[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gh jq gnupg
+        fi
+    - name: Download signed radio product packages
+      shell: bash
+      env:
+        MANIFEST_PATH: ${{ inputs.manifest }}
+      run: |
+        set -euo pipefail
+        directory="$GITHUB_WORKSPACE/dependencies/packages"
+        mkdir -p "$directory"
+        temporary=$(mktemp -d)
+        trap 'rm -rf "$temporary"' EXIT
+        chmod 0755 "$temporary"
+        repository=https://cpeter1207.github.io/USBRadioPlus
+        curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+          "$repository/usbradioplus-archive-keyring.gpg" --output "$temporary/key.gpg"
+        fingerprints=$(gpg --batch --quiet --show-keys --with-colons "$temporary/key.gpg" |
+          awk -F: '$1 == "pub" { primary = 1; next }
+            $1 == "fpr" && primary { print $10; primary = 0 }')
+        test "$fingerprints" = A0D5A79E0F5C45E9E63679950951502BAC795E55
+        printf 'deb [signed-by=%s] %s trixie main\n' \
+          "$temporary/key.gpg" "$repository" > "$temporary/sources.list"
+        mkdir "$temporary/lists"
+        options=(-o "Dir::Etc::sourcelist=$temporary/sources.list"
+          -o Acquire::http::No-Cache=true -o Acquire::https::No-Cache=true
+          -o Dir::Etc::sourceparts=- -o "Dir::State::lists=$temporary/lists")
+        apt-get "${options[@]}" update
+        if [[ -f "${MANIFEST_PATH:-}" ]] &&
+          jq -e 'any(.[]; .repository == "librptadvecholink")' "$MANIFEST_PATH" >/dev/null; then
+          mkdir -p "$directory/bootstrap"
+          (cd "$directory/bootstrap" && apt-get "${options[@]}" download librptadv-jitter-adapter1)
+          cp "$directory/bootstrap"/*.deb "$directory/"
+        fi
+        cd "$directory"
+        apt-get "${options[@]}" download \
+          libusbradioplus-product1 libusbradioplus-product-dev \
+          librptadvremote1 librptadvremote-dev librptadv-hamlib-adapter1 librptadv-hamlib-adapter-dev \
+          librptadv-rnnoise-adapter1 librptadv-rnnoise-adapter-dev librnnoise0
+        # Candidate radio sources need the released RNNoise development surface.
+        # Bootstrap uses the same signed index and retains the matching runtime pair.
+        mkdir -p "$directory/bootstrap"
+        cp librptadv-rnnoise-adapter1_*.deb librptadv-rnnoise-adapter-dev_*.deb \
+          librnnoise0_*.deb "$directory/bootstrap/"
+        for package in libusbradioplus-product1_*.deb libusbradioplus-product-dev_*.deb; do
+          dpkg --compare-versions "$(dpkg-deb -f "$package" Version)" ge 0.1.0~alpha35-1.deb13
+        done
+    - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@0fd80670536df45efb5b9738e6c116f1f9527870
+      with:
+        manifest: ${{ inputs.manifest }}
+        package-directory: dependencies/packages
+        install: 'false'
+    - id: dependencies
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        INSTALL_PACKAGES: ${{ inputs.install }}
+        MANIFEST_PATH: ${{ inputs.manifest }}
+      run: |
+        set -euo pipefail
+        architecture=$(dpkg --print-architecture)
+        case "$architecture" in amd64|arm64) ;; *) exit 1 ;; esac
+        directory="$GITHUB_WORKSPACE/dependencies/packages"
+        mkdir -p "$directory"
+        download() {
+          repository=$1 tag=$2 package=$3
+          if [[ -f "$MANIFEST_PATH" ]] &&
+            jq -e --arg repository "$repository" 'any(.[]; .repository == $repository)' \
+              "$MANIFEST_PATH" >/dev/null; then return; fi
+          metadata=$(gh api "repos/cpeter1207/$repository/releases/tags/$tag")
+          asset=$(jq -er --arg package "$package" --arg architecture "$architecture" '
+            [.assets[] | select(.name | startswith($package + "_")) |
+              select(.name | endswith("_" + $architecture + ".deb"))] |
+            if length == 1 then .[0] else error("missing or ambiguous package asset") end
+          ' <<< "$metadata")
+          file="$directory/$(jq -r .name <<< "$asset")"
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+            "$(jq -r .browser_download_url <<< "$asset")" --output "$file"
+          printf '%s  %s\n' "$(jq -er '.digest | ltrimstr("sha256:")' <<< "$asset")" "$file" | sha256sum -c -
+        }
+        download rate_adjusting_pcm_ring v3.0.0-alpha2 librate-adjusting-pcm-ring3
+        download rate_adjusting_pcm_ring v3.0.0-alpha2 librate-adjusting-pcm-ring3-dev
+        download rptadv-samplerate-adapter v0.2.0-alpha1 librptadv-samplerate-adapter2
+        download rptadv-samplerate-adapter v0.2.0-alpha1 librptadv-samplerate-adapter-dev
+        download librptadviax2 v0.1.0-alpha5 librptadv-iax2-client1
+        download librptadviax2 v0.1.0-alpha5 librptadv-iax2-client-dev
+        download librptadvradio v0.1.0-alpha.10 librptadvradio5
+        download librptadvradio v0.1.0-alpha.10 librptadvradio-dev
+        download rptadv-gpio-adapter v0.1.0-alpha.4 librptadv-gpio-adapter1
+        download rptadv-gpio-adapter v0.1.0-alpha.4 librptadv-gpio-adapter-dev
+        for component in squelch ctcss dcs signaling tone morse dtmf template schedule; do
+          abi=1 tag=v0.1.0-alpha.1
+          case "$component" in
+            squelch|ctcss) abi=2 tag=v0.1.0-alpha.2 ;;
+            dtmf) tag=v0.1.0-alpha.2 ;;
+          esac
+          download "librptadv$component" "$tag" "librptadv${component}${abi}"
+          download "librptadv$component" "$tag" "librptadv${component}-dev"
+        done
+        if [[ "$INSTALL_PACKAGES" == true ]]; then
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y "$directory"/*.deb
+          ldconfig
+        fi
+        printf 'package_directory=%s\n' "$directory" >> "$GITHUB_OUTPUT"
