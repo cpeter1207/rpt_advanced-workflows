@@ -44,3 +44,30 @@ retains only the exact validated pinned Sofia prefix, separately recorded.
 RNNoise platform-verify includes Docker autopkgtest; its native pinned testbed
 must be supported, not omitted or mistaken for a plain in-container unit test.
 No main, release, APT, registry image, IAX source, or running-node changes.
+
+## Recovered implementation checkpoint: ordinary gates and hosted testbed
+
+The gate runner now restores the exact prepared archive inventory, binds it to
+workflow/source/architecture/image/baseline identity, and verifies installed
+header and ELF hashes before running the existing ordinary target plans.
+Native controller packages are installed before the 52-selection installed
+binary test runner. Command logs survive failures; timed-out gate process groups
+are stopped. Independent checks remain once on amd64, native checks on both
+architectures, and production coverage amd64 only.
+
+The new RNNoise helper reuses the pinned provider's Dockerfile, requires a native
+GitHub-hosted runner with disk reserve, supplies an immutable quality base,
+records recipe/base/local image identity, and never tags or pushes. The native
+gate validates this receipt before passing the exact local image ID to the
+provider's existing autopkgtest target. The source Dockerfile still has its own
+versioned Dockerfile frontend and apt/toolchain fetches; receipts identify the
+resulting local image rather than claiming bit-reproducible network inputs.
+
+Validation at this checkpoint: 55 focused tests passed (2 testbed, 3 Sofia,
+9 gate contracts, 5 installed runner, 6 package plan, 18 identity, 12 original
+cohort), plus git diff --check. No native package build, full ordinary gate,
+container build, or installed test execution has occurred here. Existing full
+workflow discovery is still nongreen because the host lacks ShellCheck,
+pkg-config and a C compiler. Tool-complete lint/review and manual-only workflow
+orchestration remain before a hosted invocation can be proposed. No publication
+or live-node modification occurred.
