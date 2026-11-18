@@ -143,7 +143,9 @@ def prepare(root, architecture, image):
     destination = output / "packages"
     destination.mkdir()
     base_packages = inventory(root / "dependencies/packages")
-    candidates = []
+    from staged_sofia import build_sofia
+
+    candidates = build_sofia(root, architecture)
     for role in ORDER:
         guard(architecture)
         source = sources / role
@@ -177,6 +179,7 @@ def prepare(root, architecture, image):
         "scope": "private preparation only; native/full gates pending; not a release",
         "architecture": architecture, "image": image, "sources": manifest,
         "workflow_commit": workflow_commit(), "packages": final,
+        "extra_prerequisites": json.loads((output / "sofia.json").read_text()),
         "baseline_sha256": sha256(root / "qualification/phone-staged-baseline.json"),
         "installed": installed_receipt(final, architecture),
     }

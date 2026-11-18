@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from phone_cohort import command, require_tests
-from provision_private_sofia import VERSION as SOFIA_VERSION, validate_install
+from staged_gates import require_sofia_pair
 from staged_packages import guard
 from staged_phone import loaded_paths, sha256, verify_files, verify_loaded
 
@@ -24,7 +24,7 @@ REQUIRED = {
     "librptadv_product.so.3", "libusbradioplus_product.so.1",
     "librptadv_portaudio_alsa_adapter.so.2", "librptadvradio.so.5",
     "librptadv_rnnoise_adapter.so.1", "librptadv_codec_g711.so.1",
-    "librptadv_sip_adapter.so.1", "usbradioplus_agc.so",
+    "librptadv_sip_adapter.so.1", "usbradioplus_agc.so", "libsofia-sip-ua.so.0",
 }
 
 
@@ -63,13 +63,8 @@ def runtime_environment(original, multiarch):
         CARGO_BUILD_JOBS="1", RUST_TEST_THREADS="1", CARGO_INCREMENTAL="0",
     )
     environment["TMPDIR"] = "/tmp"
-    if original.get("RPTADV_SOFIA_PREFIX"):
-        prefix = Path(original["RPTADV_SOFIA_PREFIX"])
-        expected = Path(original["RUNNER_TEMP"]) / f"rptadv-sofia-{SOFIA_VERSION}"
-        if prefix != expected or not prefix.is_absolute():
-            raise ValueError("unverified private Sofia prefix")
-        for key in ("LD_LIBRARY_PATH", "LIBRARY_PATH"):
-            environment[key] += ":" + str(prefix / "lib")
+    if original.get("RPTADV_SOFIA_PREFIX") or original.get("SOFIA_PREFIX"):
+        raise ValueError("private Sofia prefix cannot replace selected Debian packages")
     return environment
 
 
@@ -113,9 +108,11 @@ def execute(root, architecture):
     if "CARGO_ENCODED_RUSTFLAGS" in environment:
         raise ValueError("encoded Rust flags override warnings")
     environment["RUSTFLAGS"] = (environment.get("RUSTFLAGS", "") + " -Dwarnings").strip()
-    prefix = Path(environment["RPTADV_SOFIA_PREFIX"])
-    validate_install(prefix)
-    sofia_sha256 = sha256(prefix / "lib/libsofia-sip-ua.so.0")
+    require_sofia_pair(receipt["packages"])
+    sofia_paths = [Path("/", name) for name in files if Path(name).name == "libsofia-sip-ua.so.0"]
+    if len(sofia_paths) != 1:
+        raise ValueError("missing or ambiguous installed Sofia runtime")
+    sofia_sha256 = sha256(sofia_paths[0])
     source = root / "sources/controller"
     executables = {}
     for package in sorted({item[1] for item in SELECTIONS}):
@@ -164,7 +161,7 @@ def execute(root, architecture):
     (output / "installed-tests.json").write_text(json.dumps({
         "scope": "52 selected installed-provider assertions; not hardware acceptance",
         "architecture": architecture, "results": results, "loaded_sha256": loaded,
-        "private_sofia_sha256": sofia_sha256,
+        "packaged_sofia_sha256": sofia_sha256,
         "intentional_recovery_fixture_paths": sorted(map(str, fixture_paths)),
         "fixture_source_sha256": sha256(source / "rust/standalone/tests/fixtures/phone_codec.c"),
     }, indent=2) + "\n")

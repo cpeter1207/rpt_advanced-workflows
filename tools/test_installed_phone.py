@@ -21,11 +21,8 @@ class InstalledPhoneTests(unittest.TestCase):
         self.assertEqual(env["RPT_ADVANCED_LIBDIR"], "/usr/lib/x86_64-linux-gnu/rpt_advanced")
         self.assertEqual(env["URP_PRODUCT_INCLUDE"], "/usr/include")
 
-    def test_only_pinned_private_sofia_prefix_is_retained(self):
+    def test_private_sofia_prefix_cannot_replace_actual_packages(self):
         original = {"RUNNER_TEMP": "/ci/tmp", "RPTADV_SOFIA_PREFIX": "/ci/tmp/rptadv-sofia-1.13.19"}
-        env = runner.runtime_environment(original, "aarch64-linux-gnu")
-        self.assertTrue(env["LD_LIBRARY_PATH"].endswith(":/ci/tmp/rptadv-sofia-1.13.19/lib"))
-        original["RPTADV_SOFIA_PREFIX"] = "/tmp/stale"
         with self.assertRaises(ValueError):
             runner.runtime_environment(original, "aarch64-linux-gnu")
 
