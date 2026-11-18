@@ -1,0 +1,241 @@
+name: Manual staged phone package qualification
+on:
+  workflow_dispatch:
+    inputs:
+      quality_image:
+        description: Reviewed immutable multi-platform quality image digest (no tag)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: staged-phone-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.check.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Verify staged qualification contracts
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+          export PYTHONDONTWRITEBYTECODE=1
+          for suite in staged_phone staged_package_plan installed_phone staged_gates staged_sofia staged_testbed staged_workflow; do
+            python3 "tools/test_${suite}.py"
+          done
+      - id: check
+        env:
+          IMAGE: ${{ inputs.quality_image }}
+        run: |
+          set -euo pipefail
+          [[ "$IMAGE" =~ ^ghcr.io/cpeter1207/rpt-advanced-quality-debian13@sha256:[0-9a-f]{64}$ ]]
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+  prepare:
+    needs: [image]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    container:
+      image: ${{ needs.image.outputs.image }}
+    env:
+      GITHUB_ACTIONS: 'true'
+      STAGED_PHONE_DISPOSABLE: '1'
+      RUNNER_ENVIRONMENT: ${{ runner.environment }}
+      QUALIFICATION_IMAGE: ${{ needs.image.outputs.image }}
+      PYTHONDONTWRITEBYTECODE: '1'
+      CARGO_BUILD_JOBS: '1'
+      RUST_TEST_THREADS: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Fetch exact reviewed sources
+        run: python3 tools/phone_cohort.py checkout --manifest qualification/phone-staged.json --sources sources
+      - name: Install release-verified baseline packages
+        uses: ./.github/actions/bootstrap-staged-phone
+        with:
+          manifest: sources/controller/.github/dependencies.json
+          install: 'true'
+      - name: Build exact private candidate packages (not yet qualified)
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          mkdir -p staged-output
+          python3 tools/staged_packages.py --arch "$ARCH" --image "$QUALIFICATION_IMAGE" 2>&1 | tee staged-output/preparation.log
+      - name: Retain private diagnostic packages and receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-prepared-${{ matrix.arch }}
+          path: staged-output/
+          if-no-files-found: error
+          retention-days: 7
+  independent:
+    needs: [image, prepare]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    container:
+      image: ${{ needs.image.outputs.image }}
+    env:
+      GITHUB_ACTIONS: 'true'
+      STAGED_PHONE_DISPOSABLE: '1'
+      RUNNER_ENVIRONMENT: ${{ runner.environment }}
+      QUALIFICATION_IMAGE: ${{ needs.image.outputs.image }}
+      PYTHONDONTWRITEBYTECODE: '1'
+      CARGO_BUILD_JOBS: '1'
+      RUST_TEST_THREADS: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Fetch exact reviewed sources
+        run: python3 tools/phone_cohort.py checkout --manifest qualification/phone-staged.json --sources sources
+      - uses: actions/download-artifact@v8
+        with:
+          name: staged-prepared-amd64
+          path: staged-output
+      - name: Run ordinary independent gates against exact installed packages
+        env:
+          ARCH: amd64
+        run: |
+          set -euo pipefail
+          python3 tools/staged_gates.py independent --arch "$ARCH" --image "$QUALIFICATION_IMAGE" 2>&1 | tee staged-output/independent.log
+      - name: Retain private diagnostic packages and receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-independent-amd64
+          path: staged-output/
+          if-no-files-found: error
+          retention-days: 7
+  native:
+    needs: [image, prepare, independent]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    container:
+      image: ${{ needs.image.outputs.image }}
+      options: --volume /var/run/docker.sock:/var/run/docker.sock
+    env:
+      GITHUB_ACTIONS: 'true'
+      STAGED_PHONE_DISPOSABLE: '1'
+      RUNNER_ENVIRONMENT: ${{ runner.environment }}
+      QUALIFICATION_IMAGE: ${{ needs.image.outputs.image }}
+      PYTHONDONTWRITEBYTECODE: '1'
+      CARGO_BUILD_JOBS: '1'
+      RUST_TEST_THREADS: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Fetch exact reviewed sources
+        run: python3 tools/phone_cohort.py checkout --manifest qualification/phone-staged.json --sources sources
+      - uses: actions/download-artifact@v8
+        with:
+          name: staged-prepared-${{ matrix.arch }}
+          path: staged-output
+      - name: Build local native RNNoise testbed without publication
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends docker-cli autopkgtest
+          python3 tools/staged_testbed.py --arch "$ARCH" --image "$QUALIFICATION_IMAGE"
+          echo "STAGED_TESTBED_IMAGE=$(cat staged-output/testbed-image-id)" >> "$GITHUB_ENV"
+      - name: Run ordinary native gates against exact installed packages
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          python3 tools/staged_gates.py native --arch "$ARCH" --image "$QUALIFICATION_IMAGE" 2>&1 | tee staged-output/native.log
+      - name: Retain private diagnostic packages and receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-native-${{ matrix.arch }}
+          path: staged-output/
+          if-no-files-found: error
+          retention-days: 7
+  coverage:
+    needs: [image, prepare, independent]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    container:
+      image: ${{ needs.image.outputs.image }}
+    env:
+      GITHUB_ACTIONS: 'true'
+      STAGED_PHONE_DISPOSABLE: '1'
+      RUNNER_ENVIRONMENT: ${{ runner.environment }}
+      QUALIFICATION_IMAGE: ${{ needs.image.outputs.image }}
+      PYTHONDONTWRITEBYTECODE: '1'
+      CARGO_BUILD_JOBS: '1'
+      RUST_TEST_THREADS: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Fetch exact reviewed sources
+        run: python3 tools/phone_cohort.py checkout --manifest qualification/phone-staged.json --sources sources
+      - uses: actions/download-artifact@v8
+        with:
+          name: staged-prepared-amd64
+          path: staged-output
+      - name: Run ordinary coverage gates against exact installed packages
+        env:
+          ARCH: amd64
+        run: |
+          set -euo pipefail
+          python3 tools/staged_gates.py coverage --arch "$ARCH" --image "$QUALIFICATION_IMAGE" 2>&1 | tee staged-output/coverage.log
+      - name: Retain private diagnostic packages and receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-coverage-amd64
+          path: staged-output/
+          if-no-files-found: error
+          retention-days: 7
+  qualified:
+    needs: [prepare, independent, native, coverage]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every stage, not merely a retry or partial matrix
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          jq -e 'all(.[]; .result == "success")' <<< "$RESULTS"

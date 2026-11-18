@@ -71,3 +71,23 @@ workflow discovery is still nongreen because the host lacks ShellCheck,
 pkg-config and a C compiler. Tool-complete lint/review and manual-only workflow
 orchestration remain before a hosted invocation can be proposed. No publication
 or live-node modification occurred.
+
+## Manual workflow orchestration checkpoint
+
+Added `phone-staged.yml`: explicit immutable image input, guarded private
+package preparation on both native architectures, independent ordinary gates
+once, parallel native gates and amd64 coverage after that gate, installed-binary
+checks, retained private artifacts, and an all-stages-success terminal check.
+Only the native hosted jobs mount the disposable runner Docker socket for the
+existing RNNoise testbed. All new regression suites are wired into workflow
+validation and the staged metadata job. The 59 focused tests pass locally.
+
+Invocation remains deliberately unavailable until publication review. A new
+manual-dispatch workflow generally must be registered on the default branch;
+this task does NOT authorize changing main to accomplish that. The practical
+next publication patch is a reviewed exact qualification-branch push trigger
+plus a concrete reviewed immutable image pin (rather than relying on missing
+push inputs). No such trigger or pin has been added yet. Do not describe this
+preparation-only workflow as ready to invoke. Actionlint, ShellCheck, full
+Python discovery, native builds, upstream tests and installed checks still
+require their stated tool-complete hosted validation.
