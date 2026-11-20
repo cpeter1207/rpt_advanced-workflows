@@ -21,6 +21,50 @@ FINGERPRINT = "A0D5A79E0F5C45E9E63679950951502BAC795E55"
 
 
 class RadioProductDependencies(unittest.TestCase):
+    def test_verified_install_accepts_older_explicit_archives(self):
+        source = (
+            ROOT / ".github/actions/install-shared-dependencies/action.yml"
+        ).read_text()
+        condition = 'if [[ "$INSTALL_PACKAGES" == true ]]; then'
+        install = (
+            condition
+            + source.split(condition, 1)[1].split(
+                "        printf 'package_directory=", 1
+            )[0]
+        )
+        apt = """
+apt-get() {
+    if [[ "$1" == update ]]; then return; fi
+    if [[ " $* " != *" --allow-downgrades "* ]]; then
+        printf '%s\\n' 'A newer image package is already installed' >&2
+        return 100
+    fi
+    printf '%s\\n' "$@" > "$APT_LOG"
+}
+ldconfig() { :; }
+"""
+        with tempfile.TemporaryDirectory() as work:
+            archive = Path(work) / "librptadvdtmf1_0.1.0~alpha3-1_amd64.deb"
+            archive.touch()
+            log = Path(work) / "apt.log"
+            result = subprocess.run(
+                ["bash", "-ec", apt + install],
+                env=dict(
+                    os.environ,
+                    directory=work,
+                    INSTALL_PACKAGES="true",
+                    APT_LOG=str(log),
+                ),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                log.read_text().splitlines(),
+                ["install", "--reinstall", "--allow-downgrades", "-y", str(archive)],
+            )
+
     def test_apt_revalidates_metadata_without_disabling_index_hashes(self):
         source = (
             ROOT / ".github/actions/install-shared-dependencies/action.yml"

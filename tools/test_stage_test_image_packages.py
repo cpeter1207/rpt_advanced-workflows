@@ -1,5 +1,7 @@
 """Check installed-image runtime selection without building production."""
 
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -61,6 +63,47 @@ class PackageSelectionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             stage_packages(root, destination)
         self.assertFalse(destination.exists())
+
+    def test_image_build_can_install_older_candidate_archives(self):
+        dockerfile = Path(__file__).resolve().parents[1] / "containers/test.Dockerfile"
+        build = dockerfile.read_text().split(" AS build\n", 1)[1]
+        install = build.split("\nRUN ", 1)[1].split("\nWORKDIR ", 1)[0]
+        with tempfile.TemporaryDirectory() as work:
+            archive = Path(work) / "librptadvdtmf1_0.1.0~alpha3-1_amd64.deb"
+            archive.touch()
+            apt = Path(work) / "apt-get"
+            apt.write_text("""#!/bin/sh
+[ "$1" != update ] || exit 0
+case " $* " in
+    *" --allow-downgrades "*) printf '%s\\n' "$@" ;;
+    *) printf '%s\\n' 'A newer image package is already installed' >&2; exit 100 ;;
+esac
+""")
+            apt.chmod(0o755)
+            result = subprocess.run(
+                [
+                    "sh",
+                    "-ec",
+                    "rm() { :; }\n" + install.replace("/tmp/dependencies/", "./"),
+                ],
+                cwd=work,
+                env=dict(os.environ, PATH=f"{work}:{os.environ['PATH']}"),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                "install",
+                "--reinstall",
+                "--allow-downgrades",
+                "-y",
+                "--no-install-recommends",
+                f"./{archive.name}",
+            ],
+        )
 
     def test_dockerfile_uses_validated_staging(self):
         dockerfile = Path(__file__).resolve().parents[1] / "containers/test.Dockerfile"
