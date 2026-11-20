@@ -124,7 +124,7 @@ runs:
         done
         if [[ "$INSTALL_PACKAGES" == true ]]; then
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y "$directory"/*.deb
+          DEBIAN_FRONTEND=noninteractive apt-get install --reinstall --allow-downgrades -y "$directory"/*.deb
           ldconfig
         fi
         printf 'package_directory=%s\n' "$directory" >> "$GITHUB_OUTPUT"

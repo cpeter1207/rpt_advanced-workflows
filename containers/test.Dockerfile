@@ -19,7 +19,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
 
 FROM ghcr.io/cpeter1207/rpt-advanced-quality-debian${DEBIAN_VERSION}:latest AS build
 COPY --from=dependencies . /tmp/dependencies/
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y --no-install-recommends \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --reinstall --allow-downgrades -y --no-install-recommends \
       /tmp/dependencies/*.deb && \
     rm -rf /var/lib/apt/lists/* /tmp/dependencies
 WORKDIR /source

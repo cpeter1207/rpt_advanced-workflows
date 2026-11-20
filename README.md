@@ -54,6 +54,9 @@ The isolated source/list directory, pinned signing key, index hashes and SDK ver
 remain enforced. A native local-repository test reproduces the stale-index
 failure and verifies revalidation without disabling hash checks.
 
+Verified package archives are reinstalled into disposable CI jobs. An explicitly
+selected version may replace a newer preinstalled image package.
+
 When a dependency manifest selects EchoLink, the same signed repository supplies
 the released jitter runtime in `dependencies/packages/bootstrap/`. Candidate
 build containers install that prerequisite before building EchoLink. The returned
