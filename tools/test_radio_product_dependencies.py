@@ -231,6 +231,12 @@ ldconfig() { :; }
         script = textwrap.dedent(
             re.search(r"(?m)^      run: \|\n((?:        .*\n|\n)+)", step).group(1)
         )
+        verify = source.split("        for package in libusbradioplus-product1", 1)[1]
+        verify = (
+            "for package in libusbradioplus-product1"
+            + verify.split("        done", 1)[0]
+            + "done"
+        )
         mocks = """
 curl() { touch "${@: -1}"; }
 gpg() { printf '%s\\n' "$TEST_KEY_LIST"; }
@@ -247,18 +253,21 @@ apt-get() {
 }
 dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
 """
-        for fingerprints, version, accepted, echolink in (
-            ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha31-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha32-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha33-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha34-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha35-1.deb13", True, False),
-            ((FINGERPRINT,), "0.1.0~alpha36-1.deb13", True, False),
-            ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", False, False),
-            (("WRONG",), "0.1.0~alpha35-1.deb13", False, False),
-            ((FINGERPRINT, "WRONG"), "0.1.0~alpha35-1.deb13", False, False),
-            ((FINGERPRINT,), "0.1.0~alpha35-1.deb13", True, True),
+        for fingerprints, version, accepted, echolink, usb_pin in (
+            ((FINGERPRINT,), "0.1.0~alpha26-1.deb13", False, False, None),
+            ((FINGERPRINT,), "0.1.0~alpha31-1.deb13", False, False, None),
+            ((FINGERPRINT,), "0.1.0~alpha32-1.deb13", False, False, None),
+            ((FINGERPRINT,), "0.1.0~alpha33-1.deb13", False, False, None),
+            ((FINGERPRINT,), "0.1.0~alpha34-1.deb13", False, False, None),
+            ((FINGERPRINT,), "0.1.0~alpha35-1.deb13", True, False, None),
+            ((FINGERPRINT,), "0.1.0~alpha36-1.deb13", True, False, None),
+            ((FINGERPRINT,), "0.1.0~alpha25-1.deb13", False, False, None),
+            (("WRONG",), "0.1.0~alpha35-1.deb13", False, False, None),
+            ((FINGERPRINT, "WRONG"), "0.1.0~alpha35-1.deb13", False, False, None),
+            ((FINGERPRINT,), "0.1.0~alpha35-1.deb13", True, True, None),
+            ((FINGERPRINT,), "0.1.0~alpha36-1", True, True, "a" * 40),
+            ((FINGERPRINT,), "0.1.0~alpha34-1", False, True, "a" * 40),
+            ((FINGERPRINT,), "0.1.0~alpha35-1.deb13", True, False, "main"),
         ):
             with (
                 self.subTest(fingerprints=fingerprints),
@@ -266,13 +275,37 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
             ):
                 log = Path(work) / "apt.log"
                 manifest = Path(work) / "dependencies.json"
-                manifest.write_text(
-                    json.dumps(
-                        [{"repository": "librptadvecholink"}] if echolink else []
+                entries = [{"repository": "librptadvecholink"}] if echolink else []
+                usb_packages = [
+                    "libusbradioplus-product1",
+                    "libusbradioplus-product-dev",
+                ]
+                pinned = usb_pin == "a" * 40
+                if usb_pin:
+                    entries.append(
+                        {
+                            "repository": "USBRadioPlus",
+                            "sha": usb_pin,
+                            "packages": usb_packages,
+                        }
                     )
-                )
+                manifest.write_text(json.dumps(entries))
+                # Stand in for the candidate build between the signed download and
+                # final version gate. A simultaneous released archive must fail it.
+                stage = ""
+                if pinned:
+                    stage = 'touch "$directory"/{libusbradioplus-product1,libusbradioplus-product-dev}_candidate_amd64.deb'
                 result = subprocess.run(
-                    ["bash", "-c", mocks + script],
+                    [
+                        "bash",
+                        "-c",
+                        mocks
+                        + script
+                        + "\n"
+                        + stage
+                        + "\narchitecture=amd64\n"
+                        + verify,
+                    ],
                     env=dict(
                         os.environ,
                         GITHUB_WORKSPACE=work,
@@ -295,15 +328,14 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
                     continue
                 self.assertEqual(result.returncode, 0, result.stderr)
                 calls = log.read_text().splitlines()
-                self.assertEqual(len(calls), 2 + echolink)
+                self.assertEqual(len(calls), 2 + echolink + pinned)
                 self.assertIn("Dir::Etc::sourceparts=-", calls[0])
                 self.assertIn("Dir::State::lists=", calls[0])
                 self.assertTrue(calls[0].endswith(" update"))
                 self.assertEqual(
-                    calls[-1].split(" download ", 1)[1].split(),
+                    calls[1 + echolink].split(" download ", 1)[1].split(),
                     [
-                        "libusbradioplus-product1",
-                        "libusbradioplus-product-dev",
+                        *([] if pinned else usb_packages),
                         "librptadvremote1",
                         "librptadv-hamlib-adapter1",
                         "librptadv-rnnoise-adapter1",
@@ -321,6 +353,23 @@ dpkg-deb() { printf '%s\\n' "$TEST_USB_VERSION"; }
                     self.assertEqual(
                         (packages / "bootstrap" / filename).read_bytes(), b"fixture"
                     )
+                if pinned:
+                    self.assertTrue(
+                        calls[-1].endswith(
+                            " download librptadvremote-dev librptadv-hamlib-adapter-dev"
+                        )
+                    )
+                    for name in (
+                        "librptadvremote-dev",
+                        "librptadvremote1",
+                        "librptadv-hamlib-adapter-dev",
+                        "librptadv-hamlib-adapter1",
+                    ):
+                        self.assertTrue(
+                            (
+                                packages / "bootstrap" / f"{name}_test_amd64.deb"
+                            ).is_file()
+                        )
                 if echolink:
                     packages = Path(work) / "dependencies/packages"
                     runtime = "librptadv-jitter-adapter1_test_amd64.deb"
