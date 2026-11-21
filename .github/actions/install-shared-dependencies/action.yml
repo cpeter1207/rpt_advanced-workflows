@@ -57,9 +57,15 @@ runs:
           (cd "$directory/bootstrap" && apt-get "${options[@]}" download librptadv-jitter-adapter1)
           cp "$directory/bootstrap"/*.deb "$directory/"
         fi
+        released_usb=(libusbradioplus-product1 libusbradioplus-product-dev)
+        if [[ -f "${MANIFEST_PATH:-}" ]] && jq -e 'any(.[];
+            .repository == "USBRadioPlus" and (.sha | test("^[0-9a-f]{40}$")) and
+            (.packages | sort == ["libusbradioplus-product-dev", "libusbradioplus-product1"])
+          )' "$MANIFEST_PATH" >/dev/null; then
+          released_usb=()
+        fi
         cd "$directory"
-        apt-get "${options[@]}" download \
-          libusbradioplus-product1 libusbradioplus-product-dev \
+        apt-get "${options[@]}" download "${released_usb[@]}" \
           librptadvremote1 librptadv-hamlib-adapter1 \
           librptadv-rnnoise-adapter1 librptadv-rnnoise-adapter-dev librnnoise0
         # Candidate radio sources need the released RNNoise development surface.
@@ -67,9 +73,11 @@ runs:
         mkdir -p "$directory/bootstrap"
         cp librptadv-rnnoise-adapter1_*.deb librptadv-rnnoise-adapter-dev_*.deb \
           librnnoise0_*.deb "$directory/bootstrap/"
-        for package in libusbradioplus-product1_*.deb libusbradioplus-product-dev_*.deb; do
-          dpkg --compare-versions "$(dpkg-deb -f "$package" Version)" ge 0.1.0~alpha35-1.deb13
-        done
+        if (( ${#released_usb[@]} == 0 )); then
+          # The source build also requires these two matching development/runtime pairs.
+          (cd bootstrap && apt-get "${options[@]}" download librptadvremote-dev librptadv-hamlib-adapter-dev)
+          cp librptadvremote1_*.deb librptadv-hamlib-adapter1_*.deb bootstrap/
+        fi
     - uses: cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main
       with:
         manifest: ${{ inputs.manifest }}
@@ -87,6 +95,11 @@ runs:
         case "$architecture" in amd64|arm64) ;; *) exit 1 ;; esac
         directory="$GITHUB_WORKSPACE/dependencies/packages"
         mkdir -p "$directory"
+        for package in libusbradioplus-product1 libusbradioplus-product-dev; do
+          archives=("$directory/${package}_"*_"$architecture".deb)
+          [[ ${#archives[@]} == 1 && -f "${archives[0]}" ]]
+          dpkg --compare-versions "$(dpkg-deb -f "${archives[0]}" Version)" ge 0.1.0~alpha35-1.deb13
+        done
         download() {
           repository=$1 tag=$2 package=$3
           if [[ -f "$MANIFEST_PATH" ]] &&
