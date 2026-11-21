@@ -1,0 +1,60 @@
+name: Candidate cohort proof
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  cohort:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {arch: amd64, runner: ubuntu-24.04}
+          - {arch: arm64, runner: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.runner }}
+    container: ghcr.io/cpeter1207/rpt-advanced-quality-debian13@sha256:c3800ed0094d0d01284b70481d3189a76044042b2900594115db2e2a41f2d0fa
+    defaults:
+      run:
+        shell: bash
+    env:
+      EXPECTED_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: cpeter1207/rptadv-shared-library-workflows
+          ref: 5e2e1cbfe15b4e0dfd0cda050c3ea7dc39f1db39
+          path: proof-shared
+          persist-credentials: false
+      - name: Use the reviewed personal action checkouts
+        run: |
+          set -euo pipefail
+          [[ $(git -C proof-shared rev-parse HEAD) == 5e2e1cbfe15b4e0dfd0cda050c3ea7dc39f1db39 ]]
+          echo 'ed5cad8223b8dca52803d73048a82969697efa4bf052e06a26c3990da7c4379c  tools/task-37/cohort.json' | sha256sum -c -
+          jq -ef proof-shared/actions/install-candidate-dependencies/manifest.jq tools/task-37/cohort.json
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path(".github/actions/install-shared-dependencies/action.yml")
+          s = p.read_text()
+          published = "cpeter1207/rptadv-shared-library-workflows/actions/install-candidate-dependencies@main"
+          assert s.count(published) == 1
+          p.write_text(s.replace(published, "./proof-shared/actions/install-candidate-dependencies"))
+          PY
+          git diff -- .github/actions/install-shared-dependencies/action.yml
+          echo /opt/cargo/bin >> "$GITHUB_PATH"
+      - name: Record the native consumer compiler
+        run: |
+          set -euo pipefail
+          [[ $(dpkg --print-architecture) == "$EXPECTED_ARCH" ]]
+          { rustc -vV; cargo -V; } | tee "$RUNNER_TEMP/caller-before"
+          grep -Fxq 'release: 1.88.0' "$RUNNER_TEMP/caller-before"
+          grep -Eq '^cargo 1\.88\.0 ' "$RUNNER_TEMP/caller-before"
+      - name: Build and install the complete pinned cohort
+        uses: ./.github/actions/install-shared-dependencies
+        with:
+          manifest: tools/task-37/cohort.json
+          install: 'true'
+      - name: Verify installed archives, caller compiler and linked public descriptors
+        run: bash tools/task-37/verify.sh
